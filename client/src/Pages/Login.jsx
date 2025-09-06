@@ -9,14 +9,13 @@ export default function Login() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log({ role, username, password });
   };
 
   // Role-specific left side text
   const roleWelcome = {
-    admin: "Manage the system with ease.",
-    staff: "Access your teaching tools.",
-    student: "Start your learning journey.",
+    admin: "Manage the system with ease",
+    staff: "Access your teaching tools",
+    student: "Start your learning journey",
   };
 
   // Role-specific descriptions
@@ -31,7 +30,7 @@ export default function Login() {
   return (
     <div className="h-screen flex bg-gray-50 overflow-hidden">
       {/* Left Gradient Section */}
-      <div className="hidden lg:flex w-7/12 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 relative">
+      <div className="hidden lg:flex w-8/12 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 relative">
         {/* Decorative background elements */}
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="absolute top-20 left-20 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
@@ -39,7 +38,7 @@ export default function Login() {
         <div className="absolute top-1/2 right-32 w-24 h-24 bg-white/20 rounded-full blur-lg"></div>
 
         {/* Content - Always Centered */}
-        <div className="relative z-10 flex items-center justify-center w-full h-full p-8">
+        <div className="relative z-1 flex items-center justify-center w-full h-full p-8">
           <div className="text-center max-w-lg">
             {/* Animate text on role change */}
             <AnimatePresence mode="wait">
@@ -85,7 +84,7 @@ export default function Login() {
       </div>
 
       {/* Right Form Section */}
-      <div className="w-full lg:w-5/12 flex items-center justify-center p-4 lg:p-6">
+      <div className="w-full lg:w-5/12 flex items-center justify-center p-4 lg:p-4">
         <div className="w-full max-w-sm">
           {/* Logo Section */}
           <div className="text-center mb-4">
@@ -119,7 +118,7 @@ export default function Login() {
                     onChange={(e) => setRole(e.target.value)}
                     className="sr-only"
                   />
-                  <div className="capitalize text-xs">{r}</div>
+                  <div className="capitalize text-sm">{r}</div>
                 </label>
               ))}
             </div>
@@ -132,7 +131,7 @@ export default function Login() {
               <div>
                 <label
                   htmlFor="username"
-                  className="block text-gray-700 font-medium mb-1 text-sm"
+                  className="block text-gray-700 font-medium mb-1 text-md"
                 >
                   Username
                 </label>
@@ -153,7 +152,7 @@ export default function Login() {
               <div>
                 <label
                   htmlFor="password"
-                  className="block text-gray-700 font-medium mb-1 text-sm"
+                  className="block text-gray-700 font-medium mb-1 text-md"
                 >
                   Password
                 </label>
@@ -170,18 +169,11 @@ export default function Login() {
                 />
               </div>
 
-              {/* Additional options */}
-              <div className="flex items-center justify-between text-xs">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-3 h-3 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-1.5"
-                  />
-                  <span className="text-gray-600">Remember me</span>
-                </label>
+              {/* Forgot Password */}
+              <div className="flex items-center justify-between text-sm">
                 <button
                   type="button"
-                  className="text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+                  className="text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
                 >
                   Forgot password?
                 </button>
@@ -210,11 +202,6 @@ export default function Login() {
                 Create New Account
               </a>
             </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center mt-4 text-gray-500 text-xs">
-            <p>© 2024 Learning Management System. All rights reserved.</p>
           </div>
         </div>
       </div>
