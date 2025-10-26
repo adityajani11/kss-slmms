@@ -1,24 +1,66 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import Loader from "../components/Loader";
 import logo from "../assets/logo-trans.png";
+
+const roles = ["admin", "staff", "student"];
 
 export default function Login() {
   const [role, setRole] = useState("student");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  // 🚀 Redirect if already logged in
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (token && user?.role) {
+      navigate(`/${user.role}/dashboard`, { replace: true });
+    }
+  }, [navigate]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const base = import.meta.env.VITE_API_BASE_URL;
+      let url = `${base}/${role}/login`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "Login failed");
+
+      // ✅ Save token & user
+      if (data.token) localStorage.setItem("token", data.token);
+      if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+
+      // ✅ Dynamic redirection
+      navigate(`/${role}/dashboard`, { replace: true });
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Role-specific left side text
   const roleWelcome = {
     admin: "Manage the system with ease",
     staff: "Access your teaching tools",
     student: "Start your learning journey",
   };
 
-  // Role-specific descriptions
   const roleDescriptions = {
     admin:
       "Comprehensive system control and user management at your fingertips.",
@@ -29,21 +71,21 @@ export default function Login() {
 
   return (
     <div className="h-screen flex bg-gray-50 overflow-hidden">
+      {/* Loader */}
+      {loading && <Loader message="Signing in…" />}
+
       {/* Left Gradient Section */}
       <div className="hidden lg:flex w-8/12 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 relative">
-        {/* Decorative background elements */}
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="absolute top-20 left-20 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
         <div className="absolute bottom-20 right-20 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>
         <div className="absolute top-1/2 right-32 w-24 h-24 bg-white/20 rounded-full blur-lg"></div>
 
-        {/* Content - Always Centered */}
-        <div className="relative z-1 flex items-center justify-center w-full h-full p-8">
+        <div className="relative z-10 flex items-center justify-center w-full h-full p-8">
           <div className="text-center max-w-lg">
-            {/* Animate text on role change */}
             <AnimatePresence mode="wait">
               <motion.div
-                key={role} // re-animates when role changes
+                key={role}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -30 }}
@@ -58,35 +100,32 @@ export default function Login() {
               </motion.div>
             </AnimatePresence>
 
-            {/* Feature highlights */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
-                <div className="w-8 h-8 bg-white/20 rounded-full mx-auto mb-2 flex items-center justify-center">
-                  <span className="text-white text-xs">🔒</span>
+              {[
+                { icon: "🔒", text: "Secure" },
+                { icon: "⚡", text: "Fast" },
+                { icon: "✓", text: "Reliable" },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center"
+                >
+                  <div className="w-8 h-8 bg-white/20 rounded-full mx-auto mb-2 flex items-center justify-center">
+                    <span className="text-white text-xs">{item.icon}</span>
+                  </div>
+                  <p className="text-white/80 text-sm font-medium">
+                    {item.text}
+                  </p>
                 </div>
-                <p className="text-white/80 text-sm font-medium">Secure</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
-                <div className="w-8 h-8 bg-white/20 rounded-full mx-auto mb-2 flex items-center justify-center">
-                  <span className="text-white text-xs">⚡</span>
-                </div>
-                <p className="text-white/80 text-sm font-medium">Fast</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
-                <div className="w-8 h-8 bg-white/20 rounded-full mx-auto mb-2 flex items-center justify-center">
-                  <span className="text-white text-xs">✓</span>
-                </div>
-                <p className="text-white/80 text-sm font-medium">Reliable</p>
-              </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
       {/* Right Form Section */}
-      <div className="w-full lg:w-5/12 flex items-center justify-center p-4 lg:p-4">
+      <div className="w-full lg:w-5/12 flex items-center justify-center p-4">
         <div className="w-full max-w-sm">
-          {/* Logo Section */}
           <div className="text-center mb-4">
             <img
               src={logo}
@@ -99,10 +138,10 @@ export default function Login() {
           {/* Role Selection */}
           <div className="mb-4">
             <label className="block text-gray-700 font-medium mb-2 text-sm">
-              Select Your Role
+              Login as
             </label>
             <div className="grid grid-cols-3 gap-1">
-              {["admin", "staff", "student"].map((r) => (
+              {roles.map((r) => (
                 <label
                   key={r}
                   className={`cursor-pointer transition-all duration-200 ${
@@ -124,10 +163,9 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Login Form */}
+          {/* Form */}
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-5">
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Username */}
               <div>
                 <label
                   htmlFor="username"
@@ -148,7 +186,6 @@ export default function Login() {
                 />
               </div>
 
-              {/* Password */}
               <div>
                 <label
                   htmlFor="password"
@@ -169,39 +206,56 @@ export default function Login() {
                 />
               </div>
 
-              {/* Forgot Password */}
               <div className="flex items-center justify-between text-sm">
                 <button
                   type="button"
                   className="text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
+                  onClick={() => navigate("/forgot-password")}
                 >
                   Forgot password?
                 </button>
               </div>
 
-              {/* Sign In Button */}
               <div className="space-y-2 pt-1">
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2.5 rounded-lg font-semibold 
+                  disabled={loading}
+                  className={`w-full ${
+                    loading
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-gradient-to-r from-indigo-600 to-purple-600"
+                  } text-white py-2.5 rounded-lg font-semibold 
                             hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
-                            shadow-md hover:shadow-lg transform hover:scale-[1.02] transition-all duration-200 text-sm"
+                            shadow-md hover:shadow-lg transform hover:scale-[1.02] transition-all duration-200 text-sm`}
                 >
-                  Sign In
+                  {loading ? "Signing in..." : "Sign In"}
                 </button>
               </div>
             </form>
 
-            {/* Create Account Link (always visible) */}
             <div className="text-center mt-4">
-              <a
-                href="#"
-                onClick={() => console.log("Navigate to Register")}
+              <button
+                type="button"
+                onClick={() => navigate("/register")}
                 className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
               >
                 Create New Account
-              </a>
+              </button>
             </div>
+
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3 }}
+                  className="mt-4 text-red-600 text-center text-sm font-medium"
+                >
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>

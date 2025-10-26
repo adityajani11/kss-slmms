@@ -19,7 +19,10 @@ app.use(cors());
 connectDB();
 
 // API Routes
-app.use('/api', routes); // Use the routes from index.js
+app.use('/api/v1', routes);
+
+// Basic health check route
+app.get('/api/v1/health', (req, res) => res.json({ ok: true }));
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {

@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const ctrl = require('../controllers/studentsController');
+const ctrl = require('../controllers/standardController');
 
-// optional: attach auth middleware as needed
 router.post('/', ctrl.create);
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.getById);

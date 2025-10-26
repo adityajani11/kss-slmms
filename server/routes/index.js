@@ -1,20 +1,21 @@
 // routes/index.js
 const express = require('express');
 const router = express.Router();
-const { sendAbsentMessage } = require("../controller/whatsappController");
-const { sendWhatsAppOtpMessage } = require("../controller/otpController");
-const authenticate = require("../middleware/auth");
 
-// Importing specific route files
-const studentRoutes = require('./StudentRoute');
-const attendanceRoutes = require('./AttendanceRoute');
-const adminRoutes = require('./AdminRoute');
+// IMPLEMENT MIDDLEWARES - IMPORTANT
 
 // Mounting routes to paths
-router.use('/students', studentRoutes);
-router.use('/attendance', attendanceRoutes);
-router.use('/admin', adminRoutes);
-router.post("/send-absent-messages", authenticate, sendAbsentMessage);
-router.post("/send-otp",  sendWhatsAppOtpMessage);
+router.use('/admin', require('./AdminRoute'));
+router.use('/students', require('./StudentRoute'));
+router.use('/staff', require('./StaffAdminRoute'));
+router.use('/standards', require('./StandardRoute'));
+router.use('/categories', require('./CategoryRoute'));
+router.use('/subjects', require('./SubjectRoute'));
+router.use('/mcqs', require('./MCQRoute'));
+router.use('/papers', require('./PaperRoute'));
+router.use('/materials', require('./MaterialRoute'));
+router.use('/exams', require('./ExamAttemptRoute'));
+router.use('/audit', require('./AuditLogsRoute'));
+router.use('/exam-attempts', require('./ExamAttemptRoute'));
 
 module.exports = router;
