@@ -74,16 +74,16 @@ export default function ManageStudent() {
 
         const cityMatch =
           searchOptions.city && s.city?.toLowerCase().includes(term);
+        const districtMatch =
+          searchOptions.district && s.district?.toLowerCase().includes(term);
         const schoolMatch =
           searchOptions.schoolName &&
           s.schoolName?.toLowerCase().includes(term);
         const castMatch =
           searchOptions.cast && s.cast?.toLowerCase().includes(term);
-        const religionMatch =
-          searchOptions.religion && s.religion?.toLowerCase().includes(term);
 
         return (
-          defaultMatch || cityMatch || schoolMatch || castMatch || religionMatch
+          defaultMatch || cityMatch || districtMatch || schoolMatch || castMatch
         );
       });
     }
@@ -97,17 +97,29 @@ export default function ManageStudent() {
       icon: "info",
       title: `<strong>${student.fullName}</strong>`,
       html: `
-        <div style="text-align: left; line-height: 1.6;">
-          <p><b>Username:</b> ${student.username || "N/A"}</p>
-          <p><b>City:</b> ${student.city || "N/A"}</p>
-          <p><b>School Name:</b> ${student.schoolName || "N/A"}</p>
-          <p><b>Standard:</b> ${student.standardId?.standard || "N/A"}</p>
-          <p><b>Gender:</b> ${student.gender || "N/A"}</p>
-          <p><b>Cast:</b> ${student.cast || "N/A"}</p>
-          <p><b>Religion:</b> ${student.religion || "N/A"}</p>
-          <p><b>Contact:</b> ${student.contactNumber || "N/A"}</p>
-        </div>
-      `,
+      <div style="text-align: left; line-height: 1.6;">
+        <p><b>Username:</b> ${student.username || "N/A"}</p>
+        <p><b>City:</b> ${student.city || "N/A"}</p>
+        <p><b>District:</b> ${student.district || "N/A"}</p>
+        <p><b>School Name:</b> ${student.schoolName || "N/A"}</p>
+        <p><b>Standard:</b> ${student.standardId?.standard || "N/A"}</p>
+        ${
+          student.stream
+            ? `<p><b>Stream:</b> ${student.stream}</p>`
+            : `<p><b>Stream:</b> -</p>`
+        }
+        <p><b>Gender:</b> ${student.gender || "N/A"}</p>
+        <p><b>Cast:</b> ${student.cast || "N/A"}</p>
+        <p><b>Category:</b> ${student.category || "N/A"}</p>
+        <p><b>Contact:</b> ${student.contactNumber || "N/A"}</p>
+        <p><b>WhatsApp:</b> ${student.whatsappNumber || "N/A"}</p>
+        <p><b>Registered On:</b> ${
+          student.createdAt
+            ? new Date(student.createdAt).toLocaleDateString("en-IN")
+            : "N/A"
+        }</p>
+      </div>
+    `,
       confirmButtonColor: "#2563eb",
     });
   };
@@ -171,12 +183,15 @@ export default function ManageStudent() {
       "Full Name",
       "Username",
       "City",
+      "District",
       "School Name",
       "Standard",
+      "Stream",
       "Gender",
       "Cast",
-      "Religion",
+      "Category",
       "Contact Number",
+      "WhatsApp Number",
     ];
 
     const tableRows = filtered.map((s, i) => [
@@ -184,12 +199,15 @@ export default function ManageStudent() {
       s.fullName || "N/A",
       s.username || "N/A",
       s.city || "N/A",
+      s.district || "N/A",
       s.schoolName || "N/A",
       s.standardId?.standard || "N/A",
+      s.stream || "-",
       s.gender || "N/A",
       s.cast || "N/A",
-      s.religion || "N/A",
+      s.category || "N/A",
       s.contactNumber || "N/A",
+      s.whatsappNumber || "N/A",
     ]);
 
     autoTable(doc, {
@@ -243,13 +261,16 @@ export default function ManageStudent() {
       "Full Name": s.fullName || "N/A",
       Username: s.username || "N/A",
       City: s.city || "N/A",
+      District: s.district || "N/A",
       "School Name": s.schoolName || "N/A",
       Standard: s.standardId?.standard || "N/A",
+      Stream: s.stream || "-",
       Gender: s.gender || "N/A",
       Cast: s.cast || "N/A",
-      Religion: s.religion || "N/A",
+      Category: s.category || "N/A",
       "Contact Number": s.contactNumber || "N/A",
-      "Created At": s.createdAt
+      "WhatsApp Number": s.whatsappNumber || "N/A",
+      "Registered On": s.createdAt
         ? new Date(s.createdAt).toLocaleDateString("en-IN")
         : "N/A",
     }));
@@ -363,7 +384,7 @@ export default function ManageStudent() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             {/* Checkboxes */}
             <div className="flex flex-wrap gap-3">
-              {["city", "schoolName", "cast", "religion"].map((key) => (
+              {["city", "district", "schoolName", "cast"].map((key) => (
                 <label key={key} className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"

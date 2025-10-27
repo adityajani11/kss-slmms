@@ -12,12 +12,15 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
     confirmPassword: "",
     fullName: "",
     city: "",
+    district: "",
     schoolName: "",
     standardId: "",
     contactNumber: "",
+    whatsappNumber: "",
     gender: "",
     cast: "",
-    religion: "",
+    category: "",
+    stream: "",
   });
 
   const [standards, setStandards] = useState([]);
@@ -26,16 +29,11 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
     const fetchStandards = async () => {
       try {
         const res = await axios.get(`${base}/standards`);
-
-        if (Array.isArray(res.data?.data?.items)) {
+        if (Array.isArray(res.data?.data?.items))
           setStandards(res.data.data.items);
-        } else if (Array.isArray(res.data?.data)) {
-          setStandards(res.data.data);
-        } else if (Array.isArray(res.data)) {
-          setStandards(res.data);
-        } else {
-          setStandards([]);
-        }
+        else if (Array.isArray(res.data?.data)) setStandards(res.data.data);
+        else if (Array.isArray(res.data)) setStandards(res.data);
+        else setStandards([]);
       } catch (error) {
         console.error("Failed to fetch standards", error);
         setStandards([]);
@@ -44,19 +42,21 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
 
     fetchStandards();
 
-    // Fix: use editingStudent instead of student
     if (editingStudent) {
       setFormData({
         username: editingStudent.username || "",
         fullName: editingStudent.fullName || "",
         city: editingStudent.city || "",
+        district: editingStudent.district || "",
         schoolName: editingStudent.schoolName || "",
         standardId:
           editingStudent.standardId?._id || editingStudent.standardId || "",
         contactNumber: editingStudent.contactNumber || "",
+        whatsappNumber: editingStudent.whatsappNumber || "",
         gender: editingStudent.gender || "",
         cast: editingStudent.cast || "",
-        religion: editingStudent.religion || "",
+        category: editingStudent.category || "",
+        stream: editingStudent.stream || "",
         password: "",
         confirmPassword: "",
       });
@@ -74,19 +74,16 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
     try {
       let payload = { ...formData };
 
-      // Handle password hashing logic
       if (!editingStudent || formData.password.trim() !== "") {
         if (formData.password !== formData.confirmPassword) {
           Swal.fire("Error", "Passwords do not match!", "error");
           return;
         }
-
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(formData.password, salt);
         payload.passwordHash = hash;
       }
 
-      // Remove plain passwords
       delete payload.password;
       delete payload.confirmPassword;
 
@@ -109,6 +106,13 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
       );
     }
   };
+
+  // Get current selected standard number for stream visibility
+  const selectedStandard = standards.find(
+    (std) => std._id === formData.standardId
+  );
+  const showStream =
+    selectedStandard && Number(selectedStandard.standard) >= 10;
 
   return (
     <form
@@ -205,6 +209,21 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
           />
         </div>
 
+        {/* District */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            District
+          </label>
+          <input
+            type="text"
+            name="district"
+            required
+            value={formData.district}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+        </div>
+
         {/* School Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -242,6 +261,27 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
           </select>
         </div>
 
+        {/* Stream (conditional) */}
+        {showStream && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Stream
+            </label>
+            <select
+              name="stream"
+              value={formData.stream}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="">Select Stream</option>
+              <option value="SCIENCE">SCIENCE</option>
+              <option value="COMMERCE">COMMERCE</option>
+              <option value="ARTS">ARTS</option>
+              <option value="OTHER">OTHER</option>
+            </select>
+          </div>
+        )}
+
         {/* Contact Number */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -257,6 +297,21 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
           />
         </div>
 
+        {/* WhatsApp Number */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            WhatsApp Number
+          </label>
+          <input
+            type="number"
+            name="whatsappNumber"
+            required
+            value={formData.whatsappNumber}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+        </div>
+
         {/* Gender */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -264,6 +319,7 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
           </label>
           <select
             name="gender"
+            required
             value={formData.gender}
             onChange={handleChange}
             className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
@@ -282,24 +338,32 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
           <input
             type="text"
             name="cast"
+            required
             value={formData.cast}
             onChange={handleChange}
             className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
 
-        {/* Religion */}
+        {/* Category */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Religion
+            Category
           </label>
-          <input
-            type="text"
-            name="religion"
-            value={formData.religion}
+          <select
+            name="category"
+            required
+            value={formData.category}
             onChange={handleChange}
             className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
+          >
+            <option value="">Select</option>
+            <option value="SC">SC</option>
+            <option value="ST">ST</option>
+            <option value="OBC">OBC</option>
+            <option value="OPEN">OPEN</option>
+            <option value="OTHER">OTHER</option>
+          </select>
         </div>
       </div>
 
