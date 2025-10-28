@@ -85,7 +85,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 lg:p-8">
+    <div className="min-h-fit bg-gray-100 lg:p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

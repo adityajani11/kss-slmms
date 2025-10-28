@@ -144,11 +144,14 @@ export default function ManageStudent() {
 
     if (confirm.isConfirmed) {
       try {
-        await axios.delete(`${base}/students/${id}`);
+        setLoading(true);
+        await axios.delete(`${base}/students/${id}/hard`);
         Swal.fire("Deleted!", "Student record deleted.", "success");
         fetchStudents();
       } catch (error) {
         Swal.fire("Error", "Failed to delete student", "error");
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -170,7 +173,7 @@ export default function ManageStudent() {
     if (!confirm.isConfirmed) return;
 
     const doc = new jsPDF({
-      orientation: "landscape", // better for many columns
+      orientation: "landscape",
       unit: "pt",
       format: "A4",
     });

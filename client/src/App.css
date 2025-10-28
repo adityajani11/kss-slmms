@@ -1,0 +1,13 @@
+@font-face {
+  font-family: "Nilkanth";
+  src: url("/fonts/Nilkanth.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Hind Vadodara";
+  src: url("https://fonts.gstatic.com/s/hindvadodara/v12/neIFzCKvrIcn5pbuuuriW0F1vDFU.woff2") format("woff2");
+}
+
+body {
+  font-family: "Hind Vadodara", "Nilkanth", sans-serif;
+}

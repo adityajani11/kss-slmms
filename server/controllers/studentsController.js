@@ -1,4 +1,5 @@
 const Student = require('../models/Student');
+const mongoose = require('mongoose');
 const { parseInt: _p } = Number;
 
 // Helper: parse pagination
@@ -261,9 +262,38 @@ exports.restore = async (req, res) => {
 
 exports.hardDelete = async (req, res) => {
   try {
-    await Student.deleteOne({ _id: req.params.id });
-    return res.json({ success:true, message: 'hard deleted' });
+    const { id } = req.params;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid student ID.",
+      });
+    }
+
+    // Check if student exists
+    const student = await Student.findById(id);
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found.",
+      });
+    }
+
+    // Perform deletion
+    await Student.deleteOne({ _id: id });
+
+    return res.status(200).json({
+      success: true,
+      message: `Student '${student.fullName}' deleted successfully.`,
+    });
   } catch (err) {
-    return res.status(500).json({ success:false, error: err.message });
+    console.error("Error deleting student:", err);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while deleting the student.",
+      error: err.message,
+    });
   }
 };

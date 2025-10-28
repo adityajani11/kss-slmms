@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import bcrypt from "bcryptjs";
 import Swal from "sweetalert2";
+import { Spin } from "antd";
 
 export default function StudentForm({ onClose, onSave, editingStudent }) {
+  const [loading, setLoading] = useState(false);
   const base = import.meta.env.VITE_API_BASE_URL || "";
 
   const [formData, setFormData] = useState({
@@ -72,6 +74,7 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
     e.preventDefault();
 
     try {
+      setLoading(true);
       let payload = { ...formData };
 
       if (!editingStudent || formData.password.trim() !== "") {
@@ -95,8 +98,8 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
         Swal.fire("Success", "Student added successfully!", "success");
       }
 
-      onSave();
-      onClose();
+      onSave?.();
+      onClose?.();
     } catch (err) {
       console.error(err);
       Swal.fire(
@@ -104,6 +107,8 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
         err.response?.data?.error || "Something went wrong!",
         "error"
       );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -372,15 +377,19 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
+          className={`px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition ${
+            loading && "opacity-60 cursor-not-allowed"
+          }`}
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition ${
+            loading && "opacity-60 cursor-not-allowed"
+          }`}
         >
-          {editingStudent ? "Update Student" : "Add Student"}
+          {loading ? <Spin size="small" /> : editingStudent ? "Update" : "Add"}
         </button>
       </div>
     </form>

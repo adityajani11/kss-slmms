@@ -14,6 +14,7 @@ import ManageStudent from "./pages/admin/ManageStudent";
 import ManageStandard from "./pages/admin/ManageStandard";
 import ManageCategory from "./pages/admin/ManageCategory";
 import ManageSubject from "./pages/admin/ManageSubject";
+import ManageMCQ from "./pages/admin/ManageMCQ";
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
         <Route path="manage-standard" element={<ManageStandard />} />
         <Route path="manage-categories" element={<ManageCategory />} />
         <Route path="manage-subjects" element={<ManageSubject />} />
+        <Route path="manage-mcqs" element={<ManageMCQ />} />
       </Route>
 
       {/* Staff Routes */}

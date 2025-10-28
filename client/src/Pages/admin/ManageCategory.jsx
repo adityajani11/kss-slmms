@@ -8,14 +8,15 @@ export default function ManageCategory() {
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState("");
   const [loading, setLoading] = useState(true);
+  const [togglingId, setTogglingId] = useState(null);
   const base = import.meta.env.VITE_API_BASE_URL;
 
-  // Fetch categories
+  // Fetch categories (including inactive)
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${base}/categories/`);
-      const data = res.data?.data?.items || res.data?.data || res.data;
+      const res = await axios.get(`${base}/categories?includeDisabled=true`);
+      const data = res.data?.data || [];
       setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to fetch categories:", error);
@@ -40,9 +41,7 @@ export default function ManageCategory() {
     }
 
     try {
-      const res = await axios.post(`${base}/categories/`, {
-        name: trimmed,
-      });
+      const res = await axios.post(`${base}/categories`, { name: trimmed });
       if (res.data.success) {
         Swal.fire(
           "Added!",
@@ -55,8 +54,8 @@ export default function ManageCategory() {
         Swal.fire("Error", res.data.message || "Something went wrong", "error");
       }
     } catch (error) {
-      const msg = error.response?.data?.message || "";
-      if (msg.toLowerCase().includes("exists")) {
+      const msg = error.response?.data?.error || "";
+      if (msg.toLowerCase().includes("duplicate")) {
         Swal.fire("Duplicate", "This category already exists", "info");
       } else {
         Swal.fire("Error", msg || "Failed to add category", "error");
@@ -64,7 +63,7 @@ export default function ManageCategory() {
     }
   };
 
-  // Toggle active/inactive (with confirmation)
+  // Toggle active/inactive
   const handleToggleActive = async (id, isActive) => {
     const confirm = await Swal.fire({
       title: `${isActive ? "Deactivate" : "Activate"} Category?`,
@@ -80,9 +79,8 @@ export default function ManageCategory() {
 
     if (confirm.isConfirmed) {
       try {
-        await axios.put(`${base}/category/update/${id}`, {
-          isActive: !isActive,
-        });
+        setTogglingId(id);
+        await axios.put(`${base}/categories/${id}`);
         Swal.fire(
           "Updated!",
           `Category ${isActive ? "deactivated" : "activated"} successfully`,
@@ -92,11 +90,13 @@ export default function ManageCategory() {
       } catch (error) {
         console.error(error);
         Swal.fire("Error", "Failed to update category status", "error");
+      } finally {
+        setTogglingId(null);
       }
     }
   };
 
-  // Delete category
+  // Hard delete
   const handleDeleteCategory = async (id) => {
     const confirm = await Swal.fire({
       title: "Are you sure?",
@@ -110,7 +110,7 @@ export default function ManageCategory() {
 
     if (confirm.isConfirmed) {
       try {
-        await axios.delete(`${base}/category/delete/${id}`);
+        await axios.delete(`${base}/categories/${id}/hard`);
         Swal.fire("Deleted!", "Category has been deleted", "success");
         fetchCategories();
       } catch (error) {
@@ -149,7 +149,7 @@ export default function ManageCategory() {
         </form>
       </div>
 
-      {/* Loader or No Data */}
+      {/* Loader / No Data / List */}
       {loading ? (
         <div className="flex justify-center py-10">
           <Loader />
@@ -189,9 +189,16 @@ export default function ManageCategory() {
                       ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                       : "bg-green-100 text-green-700 hover:bg-green-200"
                   }`}
+                  disabled={togglingId === cat._id}
                 >
-                  <Power size={14} />
-                  {cat.isActive ? "Deactivate" : "Activate"}
+                  {togglingId === cat._id ? (
+                    <Loader size={16} />
+                  ) : (
+                    <>
+                      <Power size={14} />
+                      {cat.isActive ? "Deactivate" : "Activate"}
+                    </>
+                  )}
                 </button>
 
                 <button

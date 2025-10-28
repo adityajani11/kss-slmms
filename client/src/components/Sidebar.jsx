@@ -33,7 +33,11 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
         icon: <GraduationCap size={18} />,
         to: "/admin/manage-student",
       },
-      { label: "Manage MCQs", icon: <FileQuestion size={18} /> },
+      {
+        label: "Manage MCQs",
+        icon: <FileQuestion size={18} />,
+        to: "/admin/manage-mcqs",
+      },
       {
         label: "Manage Standards",
         icon: <Layers size={18} />,
@@ -66,7 +70,7 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
   const items = menuItems[panelType] || [];
 
   return (
-    <aside className="w-64 bg-white shadow-xl rounded-r-2xl p-5 flex flex-col min-h-screen relative">
+    <aside className="w-64 bg-white shadow-xl rounded-r-2xl p-5 flex flex-col min-h-screen sticky top-0">
       {/* Mobile close button */}
       <button
         onClick={onClose}

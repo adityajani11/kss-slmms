@@ -10,7 +10,7 @@ export default function ManageSubjects() {
   const [loading, setLoading] = useState(true);
   const base = import.meta.env.VITE_API_BASE_URL;
 
-  // ✅ Fetch subjects
+  // Fetch subjects
   const fetchSubjects = async () => {
     try {
       setLoading(true);
@@ -29,7 +29,7 @@ export default function ManageSubjects() {
     fetchSubjects();
   }, []);
 
-  // ✅ Add subject
+  // Add subject
   const handleAddSubject = async (e) => {
     e.preventDefault();
     const name = newSubject.trim();
@@ -40,6 +40,7 @@ export default function ManageSubjects() {
     }
 
     try {
+      setLoading(true);
       const res = await axios.post(`${base}/subjects`, { name });
       if (res.data.success) {
         Swal.fire("Added!", `Subject "${name}" added successfully`, "success");
@@ -55,10 +56,12 @@ export default function ManageSubjects() {
       } else {
         Swal.fire("Error", msg || "Failed to add subject", "error");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ✅ Toggle active/inactive (with confirmation)
+  // Toggle active/inactive (with confirmation)
   const handleToggleActive = async (id, isActive) => {
     const confirm = await Swal.fire({
       title: "Are you sure?",
@@ -67,14 +70,15 @@ export default function ManageSubjects() {
       } this subject.`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, proceed!",
+      confirmButtonColor: isActive ? "#d97706" : "#16a34a",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: `Yes, ${isActive ? "Deactivate" : "Activate"}`,
     });
 
     if (confirm.isConfirmed) {
       try {
-        await axios.put(`${base}/subjects/toggle/${id}`);
+        setLoading(true);
+        await axios.put(`${base}/subjects/${id}`);
         Swal.fire(
           "Updated!",
           `Subject ${isActive ? "deactivated" : "activated"} successfully`,
@@ -84,11 +88,13 @@ export default function ManageSubjects() {
       } catch (error) {
         console.error(error);
         Swal.fire("Error", "Failed to update subject status", "error");
+      } finally {
+        setLoading(false);
       }
     }
   };
 
-  // ✅ Delete subject
+  // Delete subject
   const handleDeleteSubject = async (id) => {
     const confirm = await Swal.fire({
       title: "Are you sure?",
@@ -102,12 +108,15 @@ export default function ManageSubjects() {
 
     if (confirm.isConfirmed) {
       try {
+        setLoading(true);
         await axios.delete(`${base}/subjects/${id}`);
         Swal.fire("Deleted!", "Subject has been deleted", "success");
         fetchSubjects();
       } catch (error) {
         console.error(error);
         Swal.fire("Error", "Failed to delete subject", "error");
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -133,6 +142,7 @@ export default function ManageSubjects() {
           />
           <button
             type="submit"
+            disabled={loading}
             className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition text-sm"
           >
             <PlusCircle size={16} />
@@ -180,7 +190,7 @@ export default function ManageSubjects() {
                     subj.isActive
                       ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                       : "bg-green-100 text-green-700 hover:bg-green-200"
-                  }`}
+                  } disabled:opacity-60 `}
                 >
                   <Power size={15} />
                   {subj.isActive ? "Deactivate" : "Activate"}
@@ -188,7 +198,7 @@ export default function ManageSubjects() {
 
                 <button
                   onClick={() => handleDeleteSubject(subj._id)}
-                  className="flex justify-center items-center gap-1 px-2.5 py-1.5 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 font-medium transition w-full sm:w-auto"
+                  className="flex justify-center items-center gap-1 px-2.5 py-1.5 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 font-medium transition w-full sm:w-auto disabled:opacity-60"
                 >
                   <Trash2 size={15} />
                   Delete

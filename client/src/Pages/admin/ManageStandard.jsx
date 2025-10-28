@@ -8,14 +8,15 @@ export default function ManageStandards() {
   const [standards, setStandards] = useState([]);
   const [newStandard, setNewStandard] = useState("");
   const [loading, setLoading] = useState(true);
+  const [togglingId, setTogglingId] = useState(null);
   const base = import.meta.env.VITE_API_BASE_URL;
 
-  // ✅ Fetch all standards (no pagination)
+  // Fetch all standards
   const fetchStandards = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${base}/standards/`);
-      const data = res.data?.data?.items || res.data?.data || res.data;
+      const res = await axios.get(`${base}/standards?includeDisabled=true`);
+      const data = res.data?.data || [];
       setStandards(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to fetch standards:", error);
@@ -29,7 +30,7 @@ export default function ManageStandards() {
     fetchStandards();
   }, []);
 
-  // ✅ Add new standard
+  // Add new standard
   const handleAddStandard = async (e) => {
     e.preventDefault();
     const standardNum = Number(newStandard);
@@ -44,7 +45,7 @@ export default function ManageStandards() {
     }
 
     try {
-      const res = await axios.post(`${base}/standards/`, {
+      const res = await axios.post(`${base}/standards`, {
         standard: standardNum,
       });
       if (res.data.success) {
@@ -68,7 +69,7 @@ export default function ManageStandards() {
     }
   };
 
-  // ✅ Toggle active/inactive with confirmation
+  // Toggle active/inactive
   const handleToggleActive = async (id, isActive) => {
     const confirm = await Swal.fire({
       title: `${isActive ? "Deactivate" : "Activate"} Standard?`,
@@ -84,9 +85,8 @@ export default function ManageStandards() {
 
     if (confirm.isConfirmed) {
       try {
-        await axios.put(`${base}/standard/update/${id}`, {
-          isActive: !isActive,
-        });
+        setTogglingId(id);
+        await axios.put(`${base}/standards/${id}`);
         Swal.fire(
           "Updated!",
           `Standard ${isActive ? "deactivated" : "activated"} successfully`,
@@ -96,11 +96,13 @@ export default function ManageStandards() {
       } catch (error) {
         console.error(error);
         Swal.fire("Error", "Failed to update standard status", "error");
+      } finally {
+        setTogglingId(null);
       }
     }
   };
 
-  // ✅ Delete standard
+  // Delete standard (hard delete)
   const handleDeleteStandard = async (id) => {
     const confirm = await Swal.fire({
       title: "Are you sure?",
@@ -114,7 +116,7 @@ export default function ManageStandards() {
 
     if (confirm.isConfirmed) {
       try {
-        await axios.delete(`${base}/standard/delete/${id}`);
+        await axios.delete(`${base}/standards/${id}/hard`);
         Swal.fire("Deleted!", "Standard has been deleted", "success");
         fetchStandards();
       } catch (error) {
@@ -195,9 +197,16 @@ export default function ManageStandards() {
                       ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                       : "bg-green-100 text-green-700 hover:bg-green-200"
                   }`}
+                  disabled={togglingId === std._id}
                 >
-                  <Power size={14} />
-                  {std.isActive ? "Deactivate" : "Activate"}
+                  {togglingId === std._id ? (
+                    <Loader size={16} />
+                  ) : (
+                    <>
+                      <Power size={14} />
+                      {std.isActive ? "Deactivate" : "Activate"}
+                    </>
+                  )}
                 </button>
 
                 <button

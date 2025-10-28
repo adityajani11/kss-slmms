@@ -122,6 +122,7 @@ export default function StaffForm({ onClose, onSuccess, existingData }) {
               <input
                 type={field.type}
                 name={field.name}
+                placeholder={`Enter ${field.label}`}
                 value={staffData[field.name]}
                 onChange={handleChange}
                 className="w-full mt-2 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
