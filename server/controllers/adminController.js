@@ -1,5 +1,6 @@
 const Admin = require("../models/Admin");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
 // Register Admin (only once)
 exports.registerAdmin = async (req, res) => {
@@ -44,7 +45,23 @@ exports.loginAdmin = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    res.status(200).json({ message: "Login successful", admin });
+    // Create JWT token
+    const token = jwt.sign(
+      { id: admin._id, role: "admin" },
+      process.env.JWT_SECRET,
+      { expiresIn: "2h" } // you can adjust expiry
+    );
+
+    // Return token + admin info (excluding password)
+    res.status(200).json({
+      message: "Login successful",
+      token,
+      user: {
+        id: admin._id,
+        username: admin.username,
+        role: "admin",
+      },
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

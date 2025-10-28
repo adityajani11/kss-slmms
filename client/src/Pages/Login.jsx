@@ -14,15 +14,6 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  // 🚀 Redirect if already logged in
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (token && user?.role) {
-      navigate(`/${user.role}/dashboard`, { replace: true });
-    }
-  }, [navigate]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -41,11 +32,11 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Login failed");
 
-      // ✅ Save token & user
+      // Save token & user
       if (data.token) localStorage.setItem("token", data.token);
       if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
 
-      // ✅ Dynamic redirection
+      // Dynamic redirection
       navigate(`/${role}/dashboard`, { replace: true });
     } catch (err) {
       console.error(err);
