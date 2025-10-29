@@ -20,7 +20,7 @@ app.use(cors());
 // Connect to MongoDB
 connectDB();
 
-// 🧩 Serve uploads folder statically (for MCQ images, materials, etc.)
+// Serve uploads folder statically (for MCQ images, materials, etc.)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Handle multer upload errors globally

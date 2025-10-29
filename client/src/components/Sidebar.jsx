@@ -53,7 +53,11 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
         icon: <FolderOpen size={18} />,
         to: "manage-subjects",
       },
-      { label: "Manage Materials", icon: <FolderOpen size={18} /> },
+      {
+        label: "Manage Materials",
+        icon: <FolderOpen size={18} />,
+        to: "manage-materials",
+      },
     ],
     staff: [
       { label: "Manage Students", icon: <GraduationCap size={18} /> },
