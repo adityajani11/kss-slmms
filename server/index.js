@@ -3,10 +3,12 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const connectDB = require("./db"); // Import DB connection logic
-const routes = require("./routes"); // Import the index file from routes folder
+const connectDB = require("./db");
+const routes = require("./routes");
+const multer = require("multer");
+const path = require("path");
 
-dotenv.config(); // Load environment variables
+dotenv.config();
 
 const app = express();
 
@@ -18,8 +20,10 @@ app.use(cors());
 // Connect to MongoDB
 connectDB();
 
-const multer = require("multer");
+// 🧩 Serve uploads folder statically (for MCQ images, materials, etc.)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Handle multer upload errors globally
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
@@ -43,6 +47,7 @@ app.get("/api/v1/health", (req, res) => res.json({ ok: true }));
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {
+  console.error("Server Error:", err);
   res.status(500).json({ message: "Server Error", error: err.message });
 });
 

@@ -1,5 +1,7 @@
 require("../models/StaffAdmin");
 const MCQ = require("../models/MCQ");
+const fs = require("fs");
+const path = require("path");
 
 // basic validation helper
 const ensureOneCorrect = (options) => {
@@ -190,16 +192,91 @@ exports.getById = async (req, res) => {
   }
 };
 
+// Helper to safely delete old file
+function deleteFileIfExists(filePath) {
+  if (filePath && fs.existsSync(filePath)) {
+    fs.unlink(filePath, (err) => {
+      if (err) console.error("Failed to delete old image:", err.message);
+    });
+  }
+}
+
+// Update MCQ Controller
 exports.update = async (req, res) => {
   try {
-    if (req.body.options) ensureOneCorrect(req.body.options);
-    const doc = await MCQ.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+    const { id } = req.params;
+
+    // Fetch existing record
+    const existing = await MCQ.findById(id);
+    if (!existing)
+      return res.status(404).json({ success: false, error: "MCQ not found" });
+
+    // Parse options safely (JSON string or array)
+    let options = req.body.options;
+    if (typeof options === "string") {
+      try {
+        options = JSON.parse(options);
+      } catch {
+        return res
+          .status(400)
+          .json({ success: false, error: "Invalid options JSON" });
+      }
+    }
+
+    // ✅ If no options provided in request, keep old options
+    if (!options || !Array.isArray(options) || options.length === 0) {
+      options = existing.options;
+    }
+
+    // ✅ Merge and replace images where new ones are uploaded
+    const mergedOptions = options.map((opt, i) => {
+      const existingOpt = existing.options[i] || {};
+      const uploadedImg = req.files?.[`optionImage_${i}`]?.[0]?.path;
+
+      if (uploadedImg) deleteFileIfExists(existingOpt.image);
+
+      return {
+        label: opt.label ?? existingOpt.label,
+        isCorrect: toBool(opt.isCorrect ?? existingOpt.isCorrect),
+        image: uploadedImg || existingOpt.image || null,
+      };
     });
-    if (!doc)
-      return res.status(404).json({ success: false, error: "not found" });
-    return res.json({ success: true, data: doc });
+
+    // ✅ Validate exactly one correct option
+    ensureOneCorrect(mergedOptions);
+
+    // Build update data
+    const updateData = {
+      standardId: req.body.standardId || existing.standardId,
+      categoryId: req.body.categoryId || existing.categoryId,
+      subjectId: req.body.subjectId || existing.subjectId,
+      question: {
+        text: req.body.questionText || existing.question.text,
+        image: existing.question.image,
+        language: req.body.language || existing.question.language,
+        font: req.body.font || existing.question.font,
+      },
+      options: mergedOptions,
+    };
+
+    // ✅ Replace question image if uploaded
+    if (req.files?.questionImage?.[0]) {
+      deleteFileIfExists(existing.question.image);
+      updateData.question.image = req.files.questionImage[0].path;
+    }
+
+    // ✅ Perform update
+    const updated = await MCQ.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    })
+      .populate("standardId", "standard")
+      .populate("subjectId", "name")
+      .populate("categoryId", "name");
+
+    return res.json({ success: true, data: updated });
   } catch (err) {
+    console.error("MCQ update error:", err);
     return res.status(400).json({ success: false, error: err.message });
   }
 };

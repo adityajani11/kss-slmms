@@ -2,29 +2,40 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
+// Ensure upload directory exists
+const UPLOAD_DIR = path.join("uploads", "mcq");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+// Configure Multer storage
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dir = "uploads/mcq";
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
+  destination: (req, file, cb) => {
+    cb(null, UPLOAD_DIR);
   },
-  filename: function (req, file, cb) {
-    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, unique + path.extname(file.originalname));
+  filename: (req, file, cb) => {
+    const uniqueName =
+      Date.now() +
+      "-" +
+      Math.round(Math.random() * 1e9) +
+      path.extname(file.originalname);
+    cb(null, uniqueName);
   },
 });
 
+// Allow only image files
 const fileFilter = (req, file, cb) => {
   if (!file.mimetype.startsWith("image/")) {
-    return cb(new Error("Only image files allowed"), false);
+    const err = new Error("Only image files are allowed!");
+    err.code = "INVALID_FILE_TYPE";
+    return cb(err, false);
   }
   cb(null, true);
 };
 
+// Initialize multer
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 200 * 1024 }, // 200 KB max size
+  limits: { fileSize: 200 * 1024 }, // 200 KB max
 });
 
 module.exports = upload;
