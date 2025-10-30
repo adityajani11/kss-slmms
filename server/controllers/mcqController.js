@@ -21,7 +21,8 @@ function toBool(v) {
 
 exports.createMCQ = async (req, res) => {
   try {
-    const { standardId, categoryId, subjectId, questionText } = req.body;
+    const { standardId, categoryId, subjectId, questionText, explanation } =
+      req.body;
 
     if (!standardId || !categoryId || !subjectId || !questionText) {
       return res.status(400).json({
@@ -118,6 +119,7 @@ exports.createMCQ = async (req, res) => {
         font: req.body.font || "Default",
       },
       options: parsedOptions,
+      explanation: typeof explanation === "string" ? explanation.trim() : "",
       createdBy: req.user?._id || "000000000000000000000000",
     });
 
@@ -223,12 +225,12 @@ exports.update = async (req, res) => {
       }
     }
 
-    // ✅ If no options provided in request, keep old options
+    // If no options provided in request, keep old options
     if (!options || !Array.isArray(options) || options.length === 0) {
       options = existing.options;
     }
 
-    // ✅ Merge and replace images where new ones are uploaded
+    // Merge and replace images where new ones are uploaded
     const mergedOptions = options.map((opt, i) => {
       const existingOpt = existing.options[i] || {};
       const uploadedImg = req.files?.[`optionImage_${i}`]?.[0]?.path;
@@ -242,7 +244,7 @@ exports.update = async (req, res) => {
       };
     });
 
-    // ✅ Validate exactly one correct option
+    // Validate exactly one correct option
     ensureOneCorrect(mergedOptions);
 
     // Build update data
@@ -257,15 +259,16 @@ exports.update = async (req, res) => {
         font: req.body.font || existing.question.font,
       },
       options: mergedOptions,
+      explanation: req.body.explanation || existing.explanation,
     };
 
-    // ✅ Replace question image if uploaded
+    // Replace question image if uploaded
     if (req.files?.questionImage?.[0]) {
       deleteFileIfExists(existing.question.image);
       updateData.question.image = req.files.questionImage[0].path;
     }
 
-    // ✅ Perform update
+    // Perform update
     const updated = await MCQ.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,

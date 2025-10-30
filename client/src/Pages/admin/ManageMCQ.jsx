@@ -36,6 +36,7 @@ export default function ManageMCQ() {
   ]);
   const [questionImage, setQuestionImage] = useState(null);
   const [questionText, setQuestionText] = useState("");
+  const [explanation, setExplanation] = useState("");
   const [editingMCQ, setEditingMCQ] = useState(null);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState("select");
@@ -127,6 +128,8 @@ export default function ManageMCQ() {
       subjectId: mcq.subjectId?._id,
     });
 
+    setExplanation(mcq?.explanation || "");
+
     setView("manage");
   };
 
@@ -158,6 +161,7 @@ export default function ManageMCQ() {
     options.forEach((opt, idx) => {
       if (opt.image) fd.append(`optionImage_${idx}`, opt.image);
     });
+    fd.append("explanation", explanation || "");
 
     try {
       setLoading(true);
@@ -343,8 +347,6 @@ export default function ManageMCQ() {
                 toolbar: [
                   ["bold", "italic", "underline"],
                   [{ list: "ordered" }, { list: "bullet" }],
-                  ["link", "image"],
-                  ["clean"],
                 ],
               }}
             />
@@ -473,6 +475,23 @@ export default function ManageMCQ() {
               Add Another Option
             </Button>
           </div>
+
+          {/* Explanation (Optional) */}
+          <Form.Item label="Explanation (Optional)" className="mt-6">
+            <ReactQuill
+              theme="snow"
+              value={explanation}
+              onChange={setExplanation}
+              placeholder="Add an explanation or reasoning for the correct answer (optional)"
+              className="bg-white rounded-md border border-gray-300"
+              modules={{
+                toolbar: [
+                  ["bold", "italic", "underline"],
+                  [{ list: "ordered" }, { list: "bullet" }],
+                ],
+              }}
+            />
+          </Form.Item>
 
           {/* Submit */}
           <Form.Item className="mt-8 text-right">
