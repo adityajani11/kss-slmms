@@ -34,7 +34,6 @@ export default function ManageMaterial() {
   const [subjects, setSubjects] = useState([]);
   const [categories, setCategories] = useState([]);
   const base = import.meta.env.VITE_API_BASE_URL;
-  const fileBase = base.replace("/api/v1", "");
 
   // Fetch standards, subjects, categories, and materials
   useEffect(() => {
@@ -108,28 +107,51 @@ export default function ManageMaterial() {
     }
   };
 
-  // View PDF in new tab
+  // View material
   const handleView = (record) => {
-    const fileUrl = `${base}/materials/${record._id}`;
+    if (!record.file?.fileId) {
+      message.error("No file available to view");
+      return;
+    }
+
+    // Open directly from backend static path
+    const fileUrl = `${base.replace(/\/api\/v1$/, "")}/${record.file.fileId}`;
     window.open(fileUrl, "_blank");
   };
 
-  // Download PDF with confirmation
+  // Download material
   const handleDownload = async (record) => {
+    if (!record.file?.fileId) {
+      message.error("No file available to download");
+      return;
+    }
+
+    const fileUrl = `${base.replace(/\/api\/v1$/, "")}/${record.file.fileId}`;
+
     try {
-      const response = await axios.get(`${base}/materials/${record._id}`, {
+      // Fetch PDF as binary
+      const response = await axios.get(fileUrl, {
         responseType: "blob",
       });
 
+      // Create blob link for download
       const blob = new Blob([response.data], { type: "application/pdf" });
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `${record.title?.replace(/\s+/g, "_") || "material"}.pdf`;
+      link.href = window.URL.createObjectURL(blob);
+      link.download =
+        record.title?.replace(/\s+/g, "_") + ".pdf" || "Material.pdf";
+
+      document.body.appendChild(link);
       link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(link.href);
+
       message.success("Download started");
     } catch (error) {
       console.error(error);
-      message.error("Failed to download PDF");
+      message.error("Failed to download file");
     }
   };
 
@@ -143,18 +165,21 @@ export default function ManageMaterial() {
     },
     {
       title: "Standard",
-      key: "standardId",
-      render: (_, record) => record.standardId?.standard || "-",
+      dataIndex: "standard",
+      key: "standard",
+      render: (text) => text || "-",
     },
     {
       title: "Subject",
-      key: "subjectId",
-      render: (_, record) => record.subjectId?.name || "-",
+      dataIndex: "subject",
+      key: "subject",
+      render: (text) => text || "-",
     },
     {
       title: "Category",
-      key: "categoryId",
-      render: (_, record) => record.categoryId?.name || "-",
+      dataIndex: "category",
+      key: "category",
+      render: (text) => text || "-",
     },
     {
       title: "PDF",
@@ -217,7 +242,6 @@ export default function ManageMaterial() {
           style={{
             marginBottom: 24,
             borderRadius: 12,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
           }}
         >
           <Row gutter={16}>

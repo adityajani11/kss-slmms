@@ -1,54 +1,55 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import StaffForm from "../../components/StaffForm";
-import { Users, GraduationCap, FileQuestion, BookOpen } from "lucide-react";
+import {
+  Users,
+  GraduationCap,
+  FileQuestion,
+  BookOpen,
+  Layers,
+  Grid,
+} from "lucide-react";
 
 export default function AdminDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [success, setSuccess] = useState("");
   const [stats, setStats] = useState({
-    staff: 0,
-    students: 0,
-    mcqs: 0,
-    subjects: 0,
+    staff: "N/A",
+    students: "N/A",
+    mcqs: "N/A",
+    subjects: "N/A",
+    categories: "N/A",
+    standards: "N/A",
   });
   const [loading, setLoading] = useState(true);
+  const base = import.meta.env.VITE_API_BASE_URL;
 
-  // Fetch stats on mount
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const endpoints = {
-          staff: "/api/admin/staff-count",
-          students: "/api/admin/student-count",
-          mcqs: "/api/admin/mcq-count",
-          subjects: "/api/admin/subject-count",
-        };
-
-        const [staffRes, studentsRes, mcqsRes, subjectsRes] = await Promise.all(
-          [
-            fetch(endpoints.staff),
-            fetch(endpoints.students),
-            fetch(endpoints.mcqs),
-            fetch(endpoints.subjects),
-          ]
-        );
-
-        const [staffData, studentData, mcqData, subjectData] =
-          await Promise.all([
-            staffRes.json().catch(() => ({})),
-            studentsRes.json().catch(() => ({})),
-            mcqsRes.json().catch(() => ({})),
-            subjectsRes.json().catch(() => ({})),
-          ]);
-
-        setStats({
-          staff: staffData?.count || 0,
-          students: studentData?.count || 0,
-          mcqs: mcqData?.count || 0,
-          subjects: subjectData?.count || 0,
-        });
+        const res = await axios.get(`${base}/staff/getAllCounts`);
+        if (res.data?.success && res.data?.data) {
+          setStats(res.data.data);
+        } else {
+          setStats({
+            staff: "N/A",
+            students: "N/A",
+            mcqs: "N/A",
+            subjects: "N/A",
+            categories: "N/A",
+            standards: "N/A",
+          });
+        }
       } catch (error) {
         console.error("Failed to fetch dashboard stats:", error);
+        setStats({
+          staff: "N/A",
+          students: "N/A",
+          mcqs: "N/A",
+          subjects: "N/A",
+          categories: "N/A",
+          standards: "N/A",
+        });
       } finally {
         setLoading(false);
       }
@@ -62,30 +63,42 @@ export default function AdminDashboard() {
       title: "Total Staff",
       value: stats.staff,
       icon: <Users size={28} />,
-      color: "from-indigo-500 to-indigo-700",
+      color: "from-indigo-200 to-indigo-400",
     },
     {
       title: "Total Students",
       value: stats.students,
       icon: <GraduationCap size={28} />,
-      color: "from-emerald-500 to-emerald-700",
+      color: "from-emerald-200 to-emerald-400",
     },
     {
       title: "Total MCQs",
       value: stats.mcqs,
       icon: <FileQuestion size={28} />,
-      color: "from-pink-500 to-rose-600",
+      color: "from-rose-200 to-pink-400",
     },
     {
       title: "Total Subjects",
       value: stats.subjects,
       icon: <BookOpen size={28} />,
-      color: "from-orange-400 to-yellow-500",
+      color: "from-yellow-200 to-orange-300",
+    },
+    {
+      title: "Total Categories",
+      value: stats.categories,
+      icon: <Layers size={28} />,
+      color: "from-sky-200 to-cyan-300",
+    },
+    {
+      title: "Total Standards",
+      value: stats.standards,
+      icon: <Grid size={28} />,
+      color: "from-teal-200 to-green-300",
     },
   ];
 
   return (
-    <div className="min-h-fit bg-gray-100 lg:p-6">
+    <div className="min-h-fit ">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -114,25 +127,28 @@ export default function AdminDashboard() {
       )}
 
       {/* Statistics Section */}
-      <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
         {statCards.map((stat, idx) => (
           <div
             key={idx}
-            className={`bg-gradient-to-br ${stat.color} text-white rounded-2xl shadow-lg p-6 flex items-center justify-between transform hover:scale-105 transition duration-300`}
+            className={`relative overflow-hidden bg-gradient-to-br ${stat.color} text-gray-800 rounded-2xl shadow-md p-6 flex items-center justify-between group transition-all duration-500`}
           >
-            <div>
-              <p className="text-sm uppercase tracking-wide opacity-90">
+            {/* White wipe hover effect */}
+            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/30 transition-all duration-500 ease-out"></div>
+
+            <div className="relative z-10">
+              <p className="text-sm font-medium uppercase tracking-wide text-gray-600">
                 {stat.title}
               </p>
-              <h2 className="text-4xl font-bold mt-1">
+              <h2 className="text-4xl font-bold mt-1 text-gray-900">
                 {loading ? (
-                  <span className="animate-pulse text-white/70">...</span>
+                  <span className="animate-pulse text-gray-500">...</span>
                 ) : (
                   stat.value
                 )}
               </h2>
             </div>
-            <div className="opacity-80">{stat.icon}</div>
+            <div className="relative z-10 opacity-80">{stat.icon}</div>
           </div>
         ))}
       </section>

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import Swal from "sweetalert2";
 import Loader from "../../components/Loader";
-import { Eye, Edit, Trash2, UserPlus, Search } from "lucide-react";
+import { Eye, Edit, Trash2, UserPlus, Search, Power } from "lucide-react";
 import StaffForm from "../../components/StaffForm";
 
 export default function ManageStaff() {
@@ -61,7 +61,7 @@ export default function ManageStaff() {
         <p><b>Gender:</b> ${staff.gender || "-"}</p>
         <p><b>Role:</b> ${staff.role || "-"}</p>
         <p><b>Notes:</b> ${staff.notes || "-"}</p>
-        <p><b>Disabled:</b> ${staff.disabled ? "Yes" : "No"}</p>
+        <p><b>Disabled:</b> ${staff.isDisabled ? "Yes" : "No"}</p>
         <p><b>Created At:</b> ${
           staff.createdAt ? new Date(staff.createdAt).toLocaleString() : "-"
         }</p>
@@ -71,9 +71,7 @@ export default function ManageStaff() {
       </div>
     `;
     Swal.fire({
-      title: `<strong>${
-        staff.fullName || staff.username || "Staff Details"
-      }</strong>`,
+      title: `<strong>${staff.username || "Staff Details"}</strong>`,
       html: infoHtml,
       icon: "info",
       confirmButtonText: "Close",
@@ -107,6 +105,37 @@ export default function ManageStaff() {
     Swal.fire("Success", msg, "success");
     setEditData(null);
     fetchStaff();
+  };
+
+  const handleToggleDisable = async (staff) => {
+    const action = staff.isDisabled ? "enable" : "disable";
+
+    const confirm = await Swal.fire({
+      title: `Are you sure you want to ${action} this user?`,
+      text: `This will ${
+        action === "disable" ? "restrict" : "allow"
+      } their access.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: `Yes, ${action} it!`,
+      cancelButtonText: "Cancel",
+      confirmButtonColor: action === "disable" ? "#e3342f" : "#16a34a",
+    });
+
+    if (confirm.isConfirmed) {
+      try {
+        await axios.patch(`${base}/staff/${staff._id}/toggle-disable`);
+        Swal.fire(
+          "Updated!",
+          `Staff has been ${action === "disable" ? "disabled" : "enabled"}.`,
+          "success"
+        );
+        fetchStaff();
+      } catch (err) {
+        console.error(err);
+        Swal.fire("Error", "Failed to update staff status.", "error");
+      }
+    }
   };
 
   return (
@@ -213,6 +242,17 @@ export default function ManageStaff() {
                         >
                           <Trash2 size={18} />
                         </button>
+                        <button
+                          onClick={() => handleToggleDisable(staff)}
+                          className={`hover:text-${
+                            staff.isDisabled ? "green" : "yellow"
+                          }-600 transition-colors`}
+                          title={
+                            staff.isDisabled ? "Enable User" : "Disable User"
+                          }
+                        >
+                          <Power size={18} />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -258,6 +298,15 @@ export default function ManageStaff() {
                       className="hover:text-red-600"
                     >
                       <Trash2 size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleToggleDisable(staff)}
+                      className={`hover:text-${
+                        staff.isDisabled ? "green" : "yellow"
+                      }-600 transition-colors`}
+                      title={staff.isDisabled ? "Enable User" : "Disable User"}
+                    >
+                      <Power size={18} />
                     </button>
                   </div>
                 </div>

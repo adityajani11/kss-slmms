@@ -2,12 +2,10 @@ const Material = require("../models/Material");
 const path = require("path");
 const fs = require("fs");
 
-// Create Material (after Multer upload)
+// ---------------- CREATE ----------------
 exports.create = async (req, res) => {
   try {
-    // Expect Multer to handle file upload, so file info is in req.file
     const { title, standardId, subjectId, categoryId } = req.body;
-    // const { title, standardId, subjectId, categoryId, uploadedBy } = req.body;
 
     if (!req.file) {
       return res
@@ -15,15 +13,17 @@ exports.create = async (req, res) => {
         .json({ success: false, error: "File is required" });
     }
 
+    // Save relative path (relative to /uploads)
+    const relativePath = path.join("uploads/materials", req.file.filename);
+
     const doc = new Material({
       title,
       standardId,
       subjectId,
       categoryId,
-      // uploadedBy,
       file: {
         storage: "fs",
-        fileId: req.file.path, // store the relative path
+        fileId: relativePath,
         size: req.file.size,
         mime: req.file.mimetype,
       },
@@ -32,11 +32,12 @@ exports.create = async (req, res) => {
     await doc.save();
     return res.status(201).json({ success: true, data: doc });
   } catch (err) {
+    console.error("Error creating material:", err);
     return res.status(400).json({ success: false, error: err.message });
   }
 };
 
-// Get all materials (with optional filters)
+// ---------------- LIST ----------------
 exports.list = async (req, res) => {
   try {
     const query = {};
@@ -46,19 +47,29 @@ exports.list = async (req, res) => {
     if (req.query.categoryId) query.categoryId = req.query.categoryId;
 
     const items = await Material.find(query)
-      // .populate("uploadedBy", "name email")
-      .populate("standardId", "name")
+      .populate("standardId", "standard")
       .populate("subjectId", "name")
       .populate("categoryId", "name")
       .sort({ createdAt: -1 });
 
-    return res.json({ success: true, data: items });
+    const formatted = items.map((item) => ({
+      _id: item._id,
+      title: item.title,
+      file: item.file,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      standard: item.standardId?.standard || "N/A",
+      subject: item.subjectId?.name || "N/A",
+      category: item.categoryId?.name || "N/A",
+    }));
+
+    return res.json({ success: true, data: formatted });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
 };
 
-// Get single material by ID
+// ---------------- VIEW PDF ----------------
 exports.getPdf = async (req, res) => {
   try {
     const material = await Material.findById(req.params.id);
@@ -68,17 +79,32 @@ exports.getPdf = async (req, res) => {
         .json({ success: false, error: "Material not found" });
     }
 
-    // material.filePath should look like: "uploads/materials/1761766111480-ADITYA_....pdf"
-    const filePath = path.join(__dirname, "..", material.filePath);
+    const filePath = material.file?.fileId;
+    if (!filePath) {
+      return res
+        .status(400)
+        .json({ success: false, error: "File path not found" });
+    }
 
-    res.sendFile(filePath);
+    // Resolve relative path from project root
+    const absolutePath = path.join(__dirname, "..", filePath);
+
+    // Verify file exists before sending
+    if (!fs.existsSync(absolutePath)) {
+      return res
+        .status(404)
+        .json({ success: false, error: "File not found on server" });
+    }
+
+    // Send file
+    return res.sendFile(absolutePath);
   } catch (err) {
     console.error("Error serving PDF:", err);
-    res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: err.message });
   }
 };
 
-// Hard delete material + file cleanup (optional)
+// ---------------- HARD DELETE ----------------
 exports.hardDelete = async (req, res) => {
   try {
     const material = await Material.findById(req.params.id);
@@ -88,12 +114,11 @@ exports.hardDelete = async (req, res) => {
         .json({ success: false, error: "Material not found" });
     }
 
-    // Optional: remove file from filesystem
-    if (material.file?.storage === "fs" && material.file?.fileId) {
-      try {
-        fs.unlinkSync(material.file.fileId);
-      } catch (e) {
-        console.warn("File deletion failed:", e.message);
+    const filePath = material.file?.fileId;
+    if (filePath) {
+      const absolutePath = path.join(__dirname, "..", filePath);
+      if (fs.existsSync(absolutePath)) {
+        fs.unlinkSync(absolutePath);
       }
     }
 
