@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import StaffForm from "../../components/StaffForm";
+import StatsCard from "../../components/StatsCard";
 import {
   Users,
   GraduationCap,
@@ -30,26 +31,9 @@ export default function AdminDashboard() {
         const res = await axios.get(`${base}/staff/getAllCounts`);
         if (res.data?.success && res.data?.data) {
           setStats(res.data.data);
-        } else {
-          setStats({
-            staff: "N/A",
-            students: "N/A",
-            mcqs: "N/A",
-            subjects: "N/A",
-            categories: "N/A",
-            standards: "N/A",
-          });
         }
       } catch (error) {
         console.error("Failed to fetch dashboard stats:", error);
-        setStats({
-          staff: "N/A",
-          students: "N/A",
-          mcqs: "N/A",
-          subjects: "N/A",
-          categories: "N/A",
-          standards: "N/A",
-        });
       } finally {
         setLoading(false);
       }
@@ -98,7 +82,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-fit ">
+    <div className="min-h-fit">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -111,14 +95,12 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Success Message */}
       {success && (
         <div className="bg-green-100 text-green-700 p-3 rounded-md mb-6 border border-green-200 shadow-sm">
           {success}
         </div>
       )}
 
-      {/* Staff Form Modal */}
       {showForm && (
         <StaffForm
           onClose={() => setShowForm(false)}
@@ -129,31 +111,10 @@ export default function AdminDashboard() {
       {/* Statistics Section */}
       <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
         {statCards.map((stat, idx) => (
-          <div
-            key={idx}
-            className={`relative overflow-hidden bg-gradient-to-br ${stat.color} text-gray-800 rounded-2xl shadow-md p-6 flex items-center justify-between group transition-all duration-500`}
-          >
-            {/* White wipe hover effect */}
-            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/30 transition-all duration-500 ease-out"></div>
-
-            <div className="relative z-10">
-              <p className="text-sm font-medium uppercase tracking-wide text-gray-600">
-                {stat.title}
-              </p>
-              <h2 className="text-4xl font-bold mt-1 text-gray-900">
-                {loading ? (
-                  <span className="animate-pulse text-gray-500">...</span>
-                ) : (
-                  stat.value
-                )}
-              </h2>
-            </div>
-            <div className="relative z-10 opacity-80">{stat.icon}</div>
-          </div>
+          <StatsCard key={idx} {...stat} loading={loading} />
         ))}
       </section>
 
-      {/* Placeholder for future content */}
       <section className="bg-white rounded-2xl shadow p-8">
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">
           Recent Activities

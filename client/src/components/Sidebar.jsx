@@ -1,9 +1,10 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import {
   LayoutDashboard,
   Users,
-  UserPlus,
+  LogOut,
   GraduationCap,
   FileQuestion,
   Layers,
@@ -12,9 +13,37 @@ import {
 } from "lucide-react";
 
 export default function Sidebar({ panelType, onAddStaff, onClose }) {
+  const navigate = useNavigate();
   const commonClasses =
     "flex items-center gap-3 px-5 py-3 rounded-lg cursor-pointer transition hover:bg-indigo-100 text-gray-700 hover:text-indigo-700";
   const activeClasses = "bg-indigo-100 text-indigo-700 font-semibold";
+
+  // Logout handler
+  const handleLogout = () => {
+    Swal.fire({
+      title: "Are you sure?",
+      text: "You will be logged out of your account.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#2563eb",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, Logout",
+      cancelButtonText: "Cancel",
+      background: "#fff",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        Swal.fire({
+          title: "Logged out!",
+          icon: "success",
+          timer: 1000,
+          showConfirmButton: false,
+        });
+        navigate("/");
+      }
+    });
+  };
 
   const menuItems = {
     admin: [
@@ -113,6 +142,17 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
           )
         )}
       </nav>
+
+      {/* Logout button at bottom */}
+      <div className="border-t pt-4 mt-4">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-5 py-3 rounded-lg cursor-pointer transition bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 font-medium"
+        >
+          <LogOut size={18} />
+          Logout
+        </button>
+      </div>
     </aside>
   );
 }

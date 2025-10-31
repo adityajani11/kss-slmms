@@ -32,9 +32,11 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Login failed");
 
+      const { token, user } = data.data || data;
+
       // Save token & user
-      if (data.token) localStorage.setItem("token", data.token);
-      if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+      if (token) localStorage.setItem("token", token);
+      if (user) localStorage.setItem("user", JSON.stringify(user));
 
       // Dynamic redirection
       navigate(`/${role}/dashboard`, { replace: true });
@@ -143,8 +145,8 @@ export default function Login() {
                 >
                   <input
                     type="radio"
-                    value={r}
-                    checked={role === r}
+                    value={r.toLowerCase()}
+                    checked={role === r.toLowerCase()}
                     onChange={(e) => setRole(e.target.value)}
                     className="sr-only"
                   />

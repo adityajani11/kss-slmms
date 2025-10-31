@@ -6,6 +6,7 @@ const ctrl = require("../controllers/staffAdminController");
 router.get("/getAllCounts", ctrl.getAllCounts);
 
 router.post("/", ctrl.create);
+router.post("/login", ctrl.login);
 router.get("/", ctrl.list);
 router.put("/:id", ctrl.update);
 router.delete("/:id", ctrl.remove);

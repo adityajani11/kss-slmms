@@ -5,25 +5,133 @@ const Subject = require("../models/Subject");
 const Category = require("../models/Category");
 const Standard = require("../models/Standard");
 
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+
+// Create new staff
 exports.create = async (req, res) => {
   try {
     const payload = req.body;
-    // if role ADMIN ensure uniqueness (partial index will enforce too)
+
+    // Check if ADMIN already exists (only one allowed)
     if (payload.role === "ADMIN") {
-      const existing = await StaffAdmin.findOne({
-        role: "ADMIN",
-        includeDisabled: true,
-      });
-      if (existing)
-        return res
-          .status(400)
-          .json({ success: false, error: "ADMIN already exists" });
+      const existing = await StaffAdmin.findOne({ role: "ADMIN" });
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          error: "An ADMIN account already exists.",
+        });
+      }
     }
-    const doc = new StaffAdmin(payload);
+
+    // Ensure required fields
+    if (!payload.password) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Password is required." });
+    }
+
+    // Hash password before storing
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(payload.password, salt);
+
+    // Create new staff record
+    const doc = new StaffAdmin({
+      ...payload,
+      password: hashedPassword,
+    });
+
     await doc.save();
-    return res.status(201).json({ success: true, data: doc });
+
+    return res.status(201).json({
+      success: true,
+      message: "Staff account created successfully.",
+      data: {
+        id: doc._id,
+        username: doc.username,
+        fullName: doc.fullName,
+        email: doc.email,
+        role: doc.role,
+      },
+    });
   } catch (err) {
-    return res.status(400).json({ success: false, error: err.message });
+    console.error("Error creating Staff:", err);
+    return res.status(400).json({
+      success: false,
+      error: err.message,
+    });
+  }
+};
+
+// Login staff
+exports.login = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Validate input
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Username and password are required",
+      });
+    }
+
+    // Find staff by username
+    const staff = await StaffAdmin.findOne({
+      username: username.toLowerCase().trim(),
+    });
+
+    if (!staff) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid username or password",
+      });
+    }
+
+    // Check if account is disabled
+    if (staff.isDisabled) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Your account has been disabled. Please contact the administrator.",
+      });
+    }
+
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, staff.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid username or password",
+      });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: staff._id, role: staff.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Success response
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      data: {
+        token,
+        user: {
+          id: staff._id,
+          username: staff.username,
+          fullName: staff.fullName,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error. Please try again later.",
+    });
   }
 };
 
@@ -34,27 +142,6 @@ exports.list = async (req, res) => {
     return res.json({ success: true, data: { items: staff } });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-// Create staff (already exists)
-exports.create = async (req, res) => {
-  try {
-    const payload = req.body;
-
-    if (payload.role === "ADMIN") {
-      const existing = await StaffAdmin.findOne({ role: "ADMIN" });
-      if (existing)
-        return res
-          .status(400)
-          .json({ success: false, error: "ADMIN already exists" });
-    }
-
-    const doc = new StaffAdmin(payload);
-    await doc.save();
-    return res.status(201).json({ success: true, data: doc });
-  } catch (err) {
-    return res.status(400).json({ success: false, error: err.message });
   }
 };
 

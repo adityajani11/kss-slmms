@@ -1,9 +1,12 @@
-const Standard = require('../models/Standard');
+const Standard = require("../models/Standard");
 const mongoose = require("mongoose");
 
 const parsePagination = (req) => {
-  const page = Math.max(1, parseInt(req.query.page || '1', 10));
-  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '20', 10)));
+  const page = Math.max(1, parseInt(req.query.page || "1", 10));
+  const limit = Math.min(
+    200,
+    Math.max(1, parseInt(req.query.limit || "20", 10))
+  );
   const skip = (page - 1) * limit;
   return { page, limit, skip };
 };
@@ -13,10 +16,10 @@ exports.create = async (req, res) => {
     const { standard } = req.body;
 
     // Validate input
-    if (!standard || standard < 1 || standard > 12) {
+    if (!standard || standard < 9 || standard > 12) {
       return res
         .status(400)
-        .json({ success: false, message: "Standard must be between 1 and 12" });
+        .json({ success: false, message: "Standard must be between 9 and 12" });
     }
 
     // Check for existing standard
@@ -33,7 +36,11 @@ exports.create = async (req, res) => {
 
     return res
       .status(201)
-      .json({ success: true, message: "Standard added successfully", data: doc });
+      .json({
+        success: true,
+        message: "Standard added successfully",
+        data: doc,
+      });
   } catch (err) {
     console.error("Error creating standard:", err);
     return res
@@ -51,17 +58,19 @@ exports.list = async (req, res) => {
     const standards = await Standard.find(query).sort({ standard: 1 });
 
     if (standards.length === 0) {
-      return res.status(200).json({ success: true, message: "No standards found", data: [] });
+      return res
+        .status(200)
+        .json({ success: true, message: "No standards found", data: [] });
     }
 
     return res.status(200).json({
       success: true,
-      data: standards
+      data: standards,
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
-      error: err.message
+      error: err.message,
     });
   }
 };
@@ -74,12 +83,16 @@ exports.toggleActive = async (req, res) => {
 
     // Validate ID format
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid standard ID" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid standard ID" });
     }
 
     const standard = await Standard.findById(id);
     if (!standard) {
-      return res.status(404).json({ success: false, message: "Standard not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Standard not found" });
     }
 
     // Toggle active flag
@@ -91,7 +104,11 @@ exports.toggleActive = async (req, res) => {
       message: `Standard ${standard.standard} has been ${
         standard.isActive ? "activated" : "deactivated"
       } successfully.`,
-      data: { _id: standard._id, standard: standard.standard, isActive: standard.isActive },
+      data: {
+        _id: standard._id,
+        standard: standard.standard,
+        isActive: standard.isActive,
+      },
     });
   } catch (err) {
     console.error("Error toggling standard:", err);
@@ -111,12 +128,16 @@ exports.hardDelete = async (req, res) => {
 
     // Validate ID format
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid standard ID" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid standard ID" });
     }
 
     const deleted = await Standard.findByIdAndDelete(id);
     if (!deleted) {
-      return res.status(404).json({ success: false, message: "Standard not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Standard not found" });
     }
 
     return res.status(200).json({
