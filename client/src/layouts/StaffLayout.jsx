@@ -19,7 +19,7 @@ export default function StaffLayout() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <Sidebar panelType="staff" />
+        <Sidebar panelType="staff" onClose={() => setSidebarOpen(false)} />
       </div>
 
       {/* Overlay for mobile */}

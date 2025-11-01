@@ -16,12 +16,17 @@ import ManageCategory from "./pages/admin/ManageCategory";
 import ManageSubject from "./pages/admin/ManageSubject";
 import ManageMCQ from "./pages/admin/ManageMCQ";
 import ManageMaterial from "./pages/admin/ManageMaterial";
+import StudentForm from "./components/StudentForm";
+import StudentProfileManage from "./pages/student/StudentProfileManage";
 
 function App() {
   return (
     <Routes>
       {/* Public Route */}
       <Route path="/" element={<Login />} />
+
+      {/* Route for student register */}
+      <Route path="/student/register" element={<StudentForm />} />
 
       {/* Admin Routes */}
       <Route
@@ -52,6 +57,8 @@ function App() {
         }
       >
         <Route path="dashboard" element={<StaffDashboard />} />
+        <Route path="manage-mcqs" element={<ManageMCQ />} />
+        <Route path="manage-materials" element={<ManageMaterial />} />
       </Route>
 
       {/* Student Routes */}
@@ -64,6 +71,7 @@ function App() {
         }
       >
         <Route path="dashboard" element={<StudentDashboard />} />
+        <Route path="manage-profile" element={<StudentProfileManage />} />
       </Route>
     </Routes>
   );

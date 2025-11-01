@@ -1,11 +1,16 @@
-const Student = require('../models/Student');
-const mongoose = require('mongoose');
+const Student = require("../models/Student");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const { parseInt: _p } = Number;
 
 // Helper: parse pagination
 const parsePagination = (req) => {
-  const page = Math.max(1, parseInt(req.query.page || '1', 10));
-  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '20', 10)));
+  const page = Math.max(1, parseInt(req.query.page || "1", 10));
+  const limit = Math.min(
+    200,
+    Math.max(1, parseInt(req.query.limit || "20", 10))
+  );
   const skip = (page - 1) * limit;
   return { page, limit, skip };
 };
@@ -15,7 +20,15 @@ exports.create = async (req, res) => {
     const payload = req.body;
 
     // Required field validation
-    const requiredFields = ["fullName", "standardId", "contactNumber", "whatsappNumber", "city", "district", "schoolName"];
+    const requiredFields = [
+      "fullName",
+      "standardId",
+      "contactNumber",
+      "whatsappNumber",
+      "city",
+      "district",
+      "schoolName",
+    ];
     const missingFields = requiredFields.filter((f) => !payload[f]);
     if (missingFields.length) {
       return res.status(400).json({
@@ -50,7 +63,9 @@ exports.create = async (req, res) => {
     if (payload.category && !validCategories.includes(payload.category)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid category value. Allowed: ${validCategories.join(", ")}`,
+        message: `Invalid category value. Allowed: ${validCategories.join(
+          ", "
+        )}`,
       });
     }
 
@@ -86,12 +101,76 @@ exports.create = async (req, res) => {
       data: newStudent,
     });
   } catch (err) {
-    console.error("Error creating student:", err);
     return res.status(500).json({
       success: false,
       message: "An unexpected error occurred while adding the student.",
       error: err.message,
     });
+  }
+};
+
+// Login API
+exports.login = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Basic validation
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Username and password are required.",
+      });
+    }
+
+    // Find student (ignore soft-deleted)
+    const student = await Student.findOne({
+      username,
+      deleted: { $ne: true },
+    }).populate("standardId", "standard");
+
+    if (!student) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found." });
+    }
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, student.passwordHash);
+    if (!isMatch) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid password." });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      {
+        id: student._id,
+        username: student.username,
+        role: "student",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    // Send minimal safe info
+    res.status(200).json({
+      success: true,
+      message: "Login successful.",
+      token,
+      user: {
+        id: student._id,
+        username: student.username,
+        fullName: student.fullName,
+        standard: student.standardId?.standard || "N/A",
+        role: "student",
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error.", error: error.message });
   }
 };
 
@@ -132,14 +211,34 @@ exports.list = async (req, res) => {
   }
 };
 
+// Get Student by ID
 exports.getById = async (req, res) => {
   try {
-    const q = req.query.includeDisabled ? { includeDisabled: true } : {};
-    const doc = await Student.findById(req.params.id, q);
-    if (!doc) return res.status(404).json({ success:false, error: 'not found' });
-    return res.json({ success:true, data: doc });
-  } catch (err) {
-    return res.status(500).json({ success:false, error: err.message });
+    const { id } = req.params;
+
+    // Find student by ID (ignore soft-deleted ones)
+    const student = await Student.findOne({ _id: id, deleted: { $ne: true } })
+      .select("-passwordHash -__v") // exclude sensitive/internal fields
+      .populate("standardId", "standard");
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: student,
+    });
+  } catch (error) {
+    console.error("Error fetching student by ID:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching student.",
+      error: error.message,
+    });
   }
 };
 
@@ -183,7 +282,9 @@ exports.update = async (req, res) => {
     if (payload.category && !validCategories.includes(payload.category)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid category value. Allowed: ${validCategories.join(", ")}`,
+        message: `Invalid category value. Allowed: ${validCategories.join(
+          ", "
+        )}`,
       });
     }
 
@@ -234,29 +335,37 @@ exports.update = async (req, res) => {
 exports.softDelete = async (req, res) => {
   try {
     const doc = await Student.findById(req.params.id);
-    if (!doc) return res.status(404).json({ success:false, error: 'not found' });
-    if (typeof doc.softDelete === 'function') {
+    if (!doc)
+      return res.status(404).json({ success: false, error: "not found" });
+    if (typeof doc.softDelete === "function") {
       await doc.softDelete();
     } else {
       doc.disabled = true;
       await doc.save();
     }
-    return res.json({ success:true, message: 'soft deleted' });
+    return res.json({ success: true, message: "soft deleted" });
   } catch (err) {
-    return res.status(500).json({ success:false, error: err.message });
+    return res.status(500).json({ success: false, error: err.message });
   }
 };
 
 exports.restore = async (req, res) => {
   try {
-    const doc = await Student.findOne({ _id: req.params.id, includeDisabled: true });
-    if (!doc) return res.status(404).json({ success:false, error: 'not found' });
-    if (!('disabled' in doc)) return res.status(400).json({ success:false, error: 'restore not supported' });
+    const doc = await Student.findOne({
+      _id: req.params.id,
+      includeDisabled: true,
+    });
+    if (!doc)
+      return res.status(404).json({ success: false, error: "not found" });
+    if (!("disabled" in doc))
+      return res
+        .status(400)
+        .json({ success: false, error: "restore not supported" });
     doc.disabled = false;
     await doc.save();
-    return res.json({ success:true, data: doc });
+    return res.json({ success: true, data: doc });
   } catch (err) {
-    return res.status(500).json({ success:false, error: err.message });
+    return res.status(500).json({ success: false, error: err.message });
   }
 };
 

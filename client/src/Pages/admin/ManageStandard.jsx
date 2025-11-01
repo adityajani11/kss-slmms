@@ -35,10 +35,10 @@ export default function ManageStandards() {
     e.preventDefault();
     const standardNum = Number(newStandard);
 
-    if (!standardNum || standardNum < 1 || standardNum > 12) {
+    if (!standardNum || standardNum < 9 || standardNum > 12) {
       Swal.fire(
         "Invalid Input",
-        "Standard must be between 1 and 12",
+        "Standard must be between 9 and 12",
         "warning"
       );
       return;
@@ -140,9 +140,9 @@ export default function ManageStandards() {
         >
           <input
             type="number"
-            min="1"
+            min="9"
             max="12"
-            placeholder="Enter standard (1 - 12)"
+            placeholder="Enter standard (9 - 12)"
             value={newStandard}
             onChange={(e) => setNewStandard(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-48"

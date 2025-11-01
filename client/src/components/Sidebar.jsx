@@ -80,23 +80,41 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
       {
         label: "Manage Subjects",
         icon: <FolderOpen size={18} />,
-        to: "manage-subjects",
+        to: "/admin/manage-subjects",
       },
       {
         label: "Manage Materials",
         icon: <FolderOpen size={18} />,
-        to: "manage-materials",
+        to: "/admin/manage-materials",
       },
     ],
     staff: [
+      {
+        label: "Dashboard",
+        icon: <LayoutDashboard size={18} />,
+        to: "/staff/dashboard",
+      },
       { label: "Manage Students", icon: <GraduationCap size={18} /> },
-      { label: "Manage MCQs", icon: <FileQuestion size={18} /> },
-      { label: "Manage Materials", icon: <FolderOpen size={18} /> },
+      {
+        label: "Manage MCQs",
+        icon: <FileQuestion size={18} />,
+        to: "/staff/manage-mcqs",
+      },
+      {
+        label: "Manage Materials",
+        icon: <FolderOpen size={18} />,
+        to: "/staff/manage-materials",
+      },
     ],
     student: [
       { label: "My Materials", icon: <FolderOpen size={18} /> },
       { label: "Attempt MCQs", icon: <FileQuestion size={18} /> },
       { label: "Results", icon: <Layers size={18} /> },
+      {
+        label: "Manage Profile",
+        icon: <FolderOpen size={18} />,
+        to: "/student/manage-profile",
+      },
     ],
   };
 

@@ -19,7 +19,7 @@ export default function AdminLayout() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <Sidebar panelType="admin" />
+        <Sidebar panelType="admin" onClose={() => setSidebarOpen(false)} />
       </div>
 
       {/* Overlay for mobile */}

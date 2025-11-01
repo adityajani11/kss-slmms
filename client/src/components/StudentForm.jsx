@@ -125,9 +125,8 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
       className="bg-white p-6 rounded-2xl shadow-md space-y-4 max-w-full sm:max-w-2xl mx-auto"
     >
       <h2 className="text-xl font-semibold text-gray-800 mb-4">
-        {editingStudent ? "Update Student" : "Add New Student"}
+        {editingStudent ? "Update" : "Create Student Account"}
       </h2>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Username */}
         <div>
@@ -371,12 +370,14 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
           </select>
         </div>
       </div>
-
       {/* Buttons */}
       <div className="flex justify-end space-x-3 pt-4">
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => {
+            if (onClose) onClose(); // For modal usage (Admin Dashboard)
+            else window.history.back(); // For direct route (Student Register page)
+          }}
           className={`px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition ${
             loading && "opacity-60 cursor-not-allowed"
           }`}
@@ -389,7 +390,13 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
             loading && "opacity-60 cursor-not-allowed"
           }`}
         >
-          {loading ? <Spin size="small" /> : editingStudent ? "Update" : "Add"}
+          {loading ? (
+            <Spin size="small" />
+          ) : editingStudent ? (
+            "Update"
+          ) : (
+            "Create"
+          )}
         </button>
       </div>
     </form>

@@ -123,6 +123,7 @@ exports.login = async (req, res) => {
           id: staff._id,
           username: staff.username,
           fullName: staff.fullName,
+          role: staff.role.toLowerCase(),
         },
       },
     });
