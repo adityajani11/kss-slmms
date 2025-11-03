@@ -45,4 +45,7 @@ router.get("/:id", ctrl.getPdf);
 // Permanently delete material + file
 router.delete("/:id/hard", ctrl.hardDelete);
 
+// Get materials by standard
+router.get("/by-standard/:standardId", ctrl.getByStandard);
+
 module.exports = router;

@@ -1,13 +1,21 @@
 import React, { useState } from "react";
-import { Card, Button, Modal, Image, Tag, Tooltip } from "antd";
-import { EditOutlined, PictureOutlined } from "@ant-design/icons";
+import { Card, Button, Modal, Image, Tag, Tooltip, message } from "antd";
+import {
+  EditOutlined,
+  PictureOutlined,
+  DeleteOutlined,
+  ExclamationCircleOutlined,
+} from "@ant-design/icons";
+import axios from "axios";
+import Swal from "sweetalert2";
 
-export default function MCQCard({ mcq, onEdit }) {
+export default function MCQCard({ mcq, onEdit, onDeleted }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalImage, setModalImage] = useState(null);
 
   const baseURL =
     import.meta.env.VITE_API_BASE_URL?.replace("/api/v1", "") || "";
+  const apiBase = import.meta.env.VITE_API_BASE_URL;
 
   const questionImage = mcq?.question?.image
     ? `${baseURL}/${mcq.question.image.replace(/\\/g, "/")}`
@@ -16,6 +24,38 @@ export default function MCQCard({ mcq, onEdit }) {
   const standard = mcq?.standardId?.standard || "-";
   const subject = mcq?.subjectId?.name || "-";
   const category = mcq?.categoryId?.name || "-";
+
+  const handleDelete = async () => {
+    try {
+      const res = await axios.delete(`${apiBase}/mcqs/${mcq._id}/hard`);
+      if (res.data?.success) {
+        if (onDeleted) onDeleted(mcq._id);
+      } else {
+        message.error(res.data?.error || "Failed to delete MCQ");
+      }
+    } catch (err) {
+      console.error(err);
+      message.error("Error deleting MCQ");
+    }
+  };
+
+  const showDeleteConfirm = () => {
+    Swal.fire({
+      title: "Are you sure you want to delete this MCQ?",
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33", // red
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, Delete",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleDelete();
+      }
+    });
+  };
 
   return (
     <>
@@ -71,6 +111,14 @@ export default function MCQCard({ mcq, onEdit }) {
                   size="small"
                   icon={<EditOutlined />}
                   onClick={() => onEdit(mcq)}
+                />
+              </Tooltip>
+              <Tooltip title="Delete MCQ">
+                <Button
+                  danger
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  onClick={showDeleteConfirm}
                 />
               </Tooltip>
             </div>

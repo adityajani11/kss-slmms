@@ -133,6 +133,10 @@ export default function ManageMCQ() {
     setView("manage");
   };
 
+  const handleDeleted = (deletedId) => {
+    setMcqs((prev) => prev.filter((m) => m._id !== deletedId));
+  };
+
   const handleSubmit = async (values) => {
     if (options.filter((o) => o.isCorrect).length !== 1) {
       return message.error("Exactly one option must be marked as correct.");
@@ -270,7 +274,12 @@ export default function ManageMCQ() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {mcqs.map((mcq) => (
-              <MCQCard key={mcq._id} mcq={mcq} onEdit={handleEdit} />
+              <MCQCard
+                key={mcq._id}
+                mcq={mcq}
+                onEdit={handleEdit}
+                onDeleted={handleDeleted}
+              />
             ))}
           </div>
         )}

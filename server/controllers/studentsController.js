@@ -126,7 +126,7 @@ exports.login = async (req, res) => {
     const student = await Student.findOne({
       username,
       deleted: { $ne: true },
-    }).populate("standardId", "standard");
+    });
 
     if (!student) {
       return res
@@ -162,7 +162,7 @@ exports.login = async (req, res) => {
         id: student._id,
         username: student.username,
         fullName: student.fullName,
-        standard: student.standardId?.standard || "N/A",
+        standardId: student.standardId,
         role: "student",
       },
     });

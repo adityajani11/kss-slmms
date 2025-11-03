@@ -107,9 +107,26 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
       },
     ],
     student: [
-      { label: "My Materials", icon: <FolderOpen size={18} /> },
-      { label: "Attempt MCQs", icon: <FileQuestion size={18} /> },
-      { label: "Results", icon: <Layers size={18} /> },
+      {
+        label: "My Materials",
+        icon: <FolderOpen size={18} />,
+        to: "/student/my-materials",
+      },
+      {
+        label: "Give Mcq Test",
+        icon: <FileQuestion size={18} />,
+        to: "/student/give-mcq-test",
+      },
+      {
+        label: "My Generated Papers",
+        icon: <Layers size={18} />,
+        to: "/student/my-generated-papers",
+      },
+      {
+        label: "Test History",
+        icon: <Layers size={18} />,
+        to: "/student/test-history",
+      },
       {
         label: "Manage Profile",
         icon: <FolderOpen size={18} />,

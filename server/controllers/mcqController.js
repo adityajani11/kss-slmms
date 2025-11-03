@@ -324,3 +324,30 @@ exports.hardDelete = async (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// Get MCQs by Standard ID
+exports.getByStandard = async (req, res) => {
+  try {
+    const { standardId } = req.params;
+    if (!standardId)
+      return res
+        .status(400)
+        .json({ success: false, error: "standardId required" });
+
+    const mcqs = await MCQ.find({
+      standardId,
+      deleted: { $ne: true },
+    })
+      .populate("subjectId", "name")
+      .populate("categoryId", "name")
+      .sort({ createdAt: -1 });
+
+    if (!mcqs.length)
+      return res.status(404).json({ success: false, message: "No MCQs found" });
+
+    res.json({ success: true, data: mcqs });
+  } catch (err) {
+    console.error("Error fetching MCQs:", err);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};

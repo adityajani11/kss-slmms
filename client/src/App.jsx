@@ -18,6 +18,11 @@ import ManageMCQ from "./pages/admin/ManageMCQ";
 import ManageMaterial from "./pages/admin/ManageMaterial";
 import StudentForm from "./components/StudentForm";
 import StudentProfileManage from "./pages/student/StudentProfileManage";
+import MyMaterials from "./pages/student/MyMaterials";
+import GiveMCQTest from "./pages/student/GiveMCQTest";
+import MyGeneratedPapers from "./pages/student/MyGeneratedPapers";
+import TestHistory from "./pages/student/TestHistory";
+import SelectMCQs from "./components/SelectMCQs";
 
 function App() {
   return (
@@ -72,6 +77,11 @@ function App() {
       >
         <Route path="dashboard" element={<StudentDashboard />} />
         <Route path="manage-profile" element={<StudentProfileManage />} />
+        <Route path="my-materials" element={<MyMaterials />} />
+        <Route path="give-mcq-test" element={<GiveMCQTest />} />
+        <Route path="my-generated-papers" element={<MyGeneratedPapers />} />
+        <Route path="test-history" element={<TestHistory />} />
+        <Route path="select-mcqs" element={<SelectMCQs />} />
       </Route>
     </Routes>
   );

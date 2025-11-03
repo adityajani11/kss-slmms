@@ -34,5 +34,6 @@ router.get("/:id", ctrl.getById);
 router.delete("/:id", ctrl.softDelete);
 router.post("/:id/restore", ctrl.restore);
 router.delete("/:id/hard", ctrl.hardDelete);
+router.get("/by-standard/:standardId", ctrl.getByStandard);
 
 module.exports = router;

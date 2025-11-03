@@ -128,3 +128,38 @@ exports.hardDelete = async (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// ---------------- GET materials by standardId ----------------
+exports.getByStandard = async (req, res) => {
+  try {
+    const { standardId } = req.params;
+    if (!standardId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "standardId is required" });
+    }
+
+    const materials = await Material.find({
+      standardId,
+      deleted: { $ne: true },
+    })
+      .populate("standardId", "standard")
+      .populate("subjectId", "name")
+      .populate("categoryId", "name")
+      .sort({ createdAt: -1 });
+
+    if (!materials || materials.length === 0) {
+      return res
+        .status(404)
+        .json({
+          success: false,
+          message: "No material found for this standard.",
+        });
+    }
+
+    res.json({ success: true, data: materials });
+  } catch (err) {
+    console.error("Error fetching materials:", err);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
