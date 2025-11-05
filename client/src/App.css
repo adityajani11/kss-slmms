@@ -1,6 +1,6 @@
 @font-face {
   font-family: "Nilkanth";
-  src: url("/fonts/Nilkanth.ttf") format("truetype");
+  src: url("./fonts/nilkanth.TTF") format("truetype");
 }
 
 body, input, textarea {

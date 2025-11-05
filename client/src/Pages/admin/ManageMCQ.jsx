@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import MCQCard from "../../components/MCQCard";
-
+import MathEditor from "../../components/MathEditor";
+import jsPDF from "jspdf";
+import { oklch, converter } from "culori";
+import html2canvas from "html2canvas";
+import renderMathInElement from "katex/contrib/auto-render/auto-render";
+import "katex/dist/katex.min.css";
 import {
   Button,
   Form,
@@ -13,6 +18,7 @@ import {
   Card,
   Row,
   Col,
+  Image,
 } from "antd";
 import {
   PlusOutlined,
@@ -20,7 +26,6 @@ import {
   AppstoreAddOutlined,
   EyeOutlined,
 } from "@ant-design/icons";
-import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import axios from "axios";
 
@@ -42,6 +47,7 @@ export default function ManageMCQ() {
   const [view, setView] = useState("select");
   const [mcqs, setMcqs] = useState([]);
   const [loadingMCQs, setLoadingMCQs] = useState(false);
+  const [preview, setPreview] = useState({ visible: false, src: "" });
   const base = import.meta.env.VITE_API_BASE_URL || "";
 
   useEffect(() => {
@@ -103,6 +109,280 @@ export default function ManageMCQ() {
       }
       return false;
     },
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!mcqs || mcqs.length === 0) {
+      message.warning("No MCQs to export.");
+      return;
+    }
+
+    // Build a clean, print-only DOM (no tailwind)
+    const baseURL = (import.meta.env.VITE_API_BASE_URL || "").replace(
+      "/api/v1",
+      ""
+    );
+
+    const container = document.createElement("div");
+    // A4 width at ~96dpi ≈ 794px. We'll capture at 2x scale for sharpness.
+    Object.assign(container.style, {
+      position: "fixed",
+      left: "-10000px",
+      top: "0",
+      width: "794px",
+      padding: "24px",
+      background: "#ffffff",
+      color: "rgb(17,17,17)",
+      fontFamily: "Nilkanth, Noto Sans Gujarati, Nirmala UI, sans-serif",
+      lineHeight: "1.5",
+    });
+
+    // Title (optional)
+    const header = document.createElement("div");
+    Object.assign(header.style, {
+      textAlign: "center",
+      marginBottom: "12px",
+      fontSize: "18px",
+      fontWeight: "600",
+    });
+    header.textContent = "Question Paper";
+    container.appendChild(header);
+
+    // Two-column flow area
+    const flow = document.createElement("div");
+    Object.assign(flow.style, {
+      columnCount: "2",
+      columnGap: "24px",
+    });
+
+    // Helper to append HTML block safely with math rendered
+    const appendMathHTML = (parent, html, extraStyle = {}) => {
+      const block = document.createElement("div");
+      Object.assign(block.style, extraStyle);
+      block.innerHTML = html || "";
+      parent.appendChild(block);
+      return block;
+    };
+
+    // Build each MCQ
+    mcqs.forEach((mcq, idx) => {
+      const qWrap = document.createElement("div");
+      Object.assign(qWrap.style, {
+        breakInside: "avoid",
+        marginBottom: "14px",
+        padding: "10px 10px",
+        border: "1px solid rgb(229,231,235)",
+        borderRadius: "8px",
+        background: "rgb(255,255,255)",
+      });
+
+      // Number + question text
+      const qRow = document.createElement("div");
+      Object.assign(qRow.style, {
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "8px",
+        marginBottom: "6px",
+        fontSize: "14px",
+      });
+
+      const qNum = document.createElement("div");
+      Object.assign(qNum.style, {
+        fontWeight: "700",
+        minWidth: "24px",
+      });
+      qNum.textContent = `${idx + 1}.`;
+
+      const qText = document.createElement("div");
+      qText.innerHTML = mcq?.question?.text || "";
+
+      qRow.appendChild(qNum);
+      qRow.appendChild(qText);
+      qWrap.appendChild(qRow);
+
+      // Question image
+      if (mcq?.question?.image) {
+        const img = document.createElement("img");
+        img.src = `${baseURL}/${mcq.question.image.replace(/\\/g, "/")}`;
+        Object.assign(img.style, {
+          maxWidth: "100%",
+          maxHeight: "220px",
+          objectFit: "contain",
+          borderRadius: "6px",
+          margin: "6px 0 6px 24px",
+          display: "block",
+        });
+        qWrap.appendChild(img);
+      }
+
+      // Options
+      if (Array.isArray(mcq?.options) && mcq.options.length) {
+        const optsWrap = document.createElement("div");
+        Object.assign(optsWrap.style, {
+          marginTop: "6px",
+          marginLeft: "24px",
+        });
+
+        mcq.options.forEach((opt, i) => {
+          const row = document.createElement("div");
+          Object.assign(row.style, {
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "8px",
+            marginBottom: "6px",
+          });
+
+          // A/B/C/D badge
+          const badge = document.createElement("div");
+          Object.assign(badge.style, {
+            width: "22px",
+            height: "22px",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "12px",
+            fontWeight: "700",
+            color: opt.isCorrect ? "rgb(255,255,255)" : "rgb(55,65,81)",
+            background: opt.isCorrect ? "rgb(22,163,74)" : "rgb(209,213,219)",
+            flex: "0 0 auto",
+            marginTop: "2px",
+          });
+          badge.textContent = String.fromCharCode(65 + i);
+
+          const optText = document.createElement("div");
+          optText.innerHTML = opt?.label || "";
+          Object.assign(optText.style, {
+            fontSize: "13px",
+            flex: "1 1 auto",
+          });
+
+          row.appendChild(badge);
+          row.appendChild(optText);
+
+          if (opt?.image) {
+            const oimg = document.createElement("img");
+            oimg.src = `${baseURL}/${opt.image.replace(/\\/g, "/")}`;
+            Object.assign(oimg.style, {
+              maxWidth: "80px",
+              maxHeight: "80px",
+              objectFit: "contain",
+              borderRadius: "6px",
+              marginLeft: "8px",
+            });
+            row.appendChild(oimg);
+          }
+
+          optsWrap.appendChild(row);
+        });
+
+        qWrap.appendChild(optsWrap);
+      }
+
+      // Explanation (if any)
+      if (mcq?.explanation) {
+        const exp = appendMathHTML(qWrap, `<em>${mcq.explanation}</em>`, {
+          marginTop: "6px",
+          marginLeft: "24px",
+          fontSize: "12px",
+          color: "rgb(55,65,81)",
+        });
+        // math applied later
+      }
+
+      flow.appendChild(qWrap);
+    });
+
+    container.appendChild(flow);
+    document.body.appendChild(container);
+
+    // Render KaTeX just within our container
+    try {
+      renderMathInElement(container, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+        ],
+        throwOnError: false,
+      });
+    } catch (e) {
+      console.warn("KaTeX render error (PDF):", e);
+    }
+
+    // Snapshot with html2canvas (no Tailwind/oklch used here)
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      // Ensure images loaded before snapshot
+      imageTimeout: 15000,
+    });
+
+    // Slice canvas into A4 pages
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
+    const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
+
+    const imgWidthPx = canvas.width;
+    const imgHeightPx = canvas.height;
+
+    // A4 aspect ratio at canvas scale
+    const pageHeightPx = Math.floor((imgWidthPx * 297) / 210);
+
+    let y = 0;
+    let pageIndex = 0;
+
+    while (y < imgHeightPx) {
+      const pageCanvas = document.createElement("canvas");
+      pageCanvas.width = imgWidthPx;
+      pageCanvas.height = Math.min(pageHeightPx, imgHeightPx - y);
+      const ctx = pageCanvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      ctx.drawImage(
+        canvas,
+        0,
+        y,
+        imgWidthPx,
+        pageCanvas.height,
+        0,
+        0,
+        imgWidthPx,
+        pageCanvas.height
+      );
+
+      const pageImgData = pageCanvas.toDataURL("image/png");
+      if (pageIndex > 0) pdf.addPage();
+
+      // Add page
+      pdf.addImage(
+        pageImgData,
+        "PNG",
+        0,
+        0,
+        pageWidth,
+        (pageWidth * pageCanvas.height) / pageCanvas.width
+      );
+
+      // Watermark (simple light gray rotated text)
+      pdf.setTextColor(180);
+      pdf.setFontSize(26);
+      const cx = pageWidth / 2;
+      const cy = pageHeight / 2;
+      // jsPDF old versions: use angle param on text
+      pdf.text("KRISHNA SECONDARY SCHOOL, KESHOD", cx, cy, {
+        align: "center",
+        angle: -45,
+      });
+
+      y += pageHeightPx;
+      pageIndex++;
+    }
+
+    pdf.save("MCQs.pdf");
+
+    // Cleanup
+    document.body.removeChild(container);
   };
 
   const handleEdit = (mcq) => {
@@ -266,25 +546,73 @@ export default function ManageMCQ() {
       <div className="min-h-fit bg-gray-100 p-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold text-gray-800">All MCQs</h2>
-          <Button onClick={() => setView("select")}>Back</Button>
+          <div>
+            <Button className="me-3" onClick={() => setView("select")}>
+              Back
+            </Button>
+            <Button type="primary" onClick={handleDownloadPDF}>
+              Download PDF
+            </Button>
+          </div>
         </div>
 
         {loadingMCQs ? (
           <p>Loading...</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div
+            id="mcq-print-area"
+            className="grid grid-cols-1 md:grid-cols-2 gap-2"
+          >
             {mcqs.map((mcq) => (
               <MCQCard
                 key={mcq._id}
                 mcq={mcq}
-                onEdit={handleEdit}
+                onEdit={() => setEditingMCQ(mcq) & setView("manage")}
                 onDeleted={handleDeleted}
+                setPreview={setPreview}
               />
             ))}
           </div>
         )}
+
+        {/* ✅ GLOBAL IMAGE VIEWER (works above modals now) */}
+        <Image.PreviewGroup
+          preview={{
+            visible: preview.visible,
+            onVisibleChange: (vis) =>
+              setPreview((p) => ({ ...p, visible: vis })),
+            zIndex: 9999,
+          }}
+        >
+          <Image src={preview.src} style={{ display: "none" }} />
+        </Image.PreviewGroup>
       </div>
     );
+  }
+
+  // Convert OKLCH → RGB
+  function convertColor(oklchValue) {
+    try {
+      // Tailwind outputs values like `oklch(0.7 0.1 240)`
+      const parts = oklchValue
+        .match(/oklch\(([^)]+)\)/)[1]
+        .split(/\s+/)
+        .map(Number);
+      const [l, c, h] = parts;
+
+      // Convert OKLCH → LAB → XYZ → sRGB (mathematically correct)
+      // Using culori — install it:
+      // npm install culori
+
+      const toRgb = converter("rgb");
+      const rgb = toRgb(oklch({ l, c, h }));
+
+      return `rgb(${Math.round(rgb.r * 255)}, ${Math.round(
+        rgb.g * 255
+      )}, ${Math.round(rgb.b * 255)})`;
+    } catch {
+      return "#000"; // fallback: safe
+    }
   }
 
   // === Manage MCQs Form ===
@@ -346,19 +674,7 @@ export default function ManageMCQ() {
 
           {/* Question Editor */}
           <Form.Item label="Question Text" required className="mt-4">
-            <ReactQuill
-              theme="snow"
-              value={questionText}
-              onChange={setQuestionText}
-              placeholder="Type your question (Gujarati/Math supported)"
-              className="bg-white rounded-md border border-gray-300"
-              modules={{
-                toolbar: [
-                  ["bold", "italic", "underline"],
-                  [{ list: "ordered" }, { list: "bullet" }],
-                ],
-              }}
-            />
+            <MathEditor value={questionText} onChange={setQuestionText} />
           </Form.Item>
 
           {/* Question Image */}
@@ -486,20 +802,8 @@ export default function ManageMCQ() {
           </div>
 
           {/* Explanation (Optional) */}
-          <Form.Item label="Explanation (Optional)" className="mt-6">
-            <ReactQuill
-              theme="snow"
-              value={explanation}
-              onChange={setExplanation}
-              placeholder="Add an explanation or reasoning for the correct answer (optional)"
-              className="bg-white rounded-md border border-gray-300"
-              modules={{
-                toolbar: [
-                  ["bold", "italic", "underline"],
-                  [{ list: "ordered" }, { list: "bullet" }],
-                ],
-              }}
-            />
+          <Form.Item label="Explanation (Optional)">
+            <MathEditor value={explanation} onChange={setExplanation} />
           </Form.Item>
 
           {/* Submit */}
