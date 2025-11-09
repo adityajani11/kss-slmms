@@ -3,7 +3,10 @@ const router = express.Router();
 const upload = require("../middleware/uploadMCQ");
 const ctrl = require("../controllers/mcqController");
 
-// Create MCQ Route
+// PDF route for filtered MCQs
+router.post("/pdf", ctrl.getFilteredMcqPDF);
+
+/* ---------- CRUD ROUTES ---------- */
 router.post(
   "/",
   upload.fields([
@@ -16,7 +19,6 @@ router.post(
   ctrl.createMCQ
 );
 
-// Update MCQ route
 router.put(
   "/:id",
   upload.fields([

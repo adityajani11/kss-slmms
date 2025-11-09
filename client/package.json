@@ -10,11 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.1.13",
     "antd": "^5.11.3-alpha.0",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
-    "culori": "^4.0.2",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.24",
     "html2canvas": "^1.4.1",

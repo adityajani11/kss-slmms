@@ -6,88 +6,130 @@ const ExamAttempt = require("../models/ExamAttempt");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
 const fs = require("fs");
 const path = require("path");
+const { buildHTML } = require("./mcqController");
+const puppeteer = require("puppeteer");
+const Material = require("../models/Material");
 
 // Utility: pick random items
 function shuffle(arr) {
   return arr.sort(() => Math.random() - 0.5);
 }
 
-/**
- * Generate paper from MCQs.
- * Request body:
- *  { title, standardId, subjectIds:[], categoryId, totalMarks }
- * - totalMarks must be <= 120
- * - picks totalMarks number of MCQs (1 mark each). If fewer MCQs available -> returns error.
- */
+/* ---------- SAVE STUDENT-GENERATED PAPER ---------- */
 exports.generatePaper = async (req, res) => {
   try {
-    const {
-      title,
-      standardId,
-      subjectIds = [],
-      categoryId,
-      totalMarks,
-    } = req.body;
-    const studentId = req.user && req.user._id; // ensure auth middleware sets req.user
+    const { mcqs, pdfHeading, includeAnswers, title } = req.body;
+    const studentId = req.user?._id; // from auth middleware
+    const standardId = req.user?.standardId;
 
-    if (!title || !standardId || !categoryId || !totalMarks) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Missing required fields" });
-    }
-
-    if (totalMarks > 120) {
-      return res
-        .status(400)
-        .json({ success: false, error: "totalMarks cannot exceed 120" });
-    }
-
-    // Build query
-    const q = {
-      standardId: mongoose.Types.ObjectId(standardId),
-      categoryId: mongoose.Types.ObjectId(categoryId),
-    };
-    if (subjectIds.length)
-      q.subjectId = { $in: subjectIds.map((s) => mongoose.Types.ObjectId(s)) };
-
-    // Fetch MCQs
-    const candidates = await MCQModel.find(q).lean();
-    if (!candidates || candidates.length < totalMarks) {
+    if (!studentId || !standardId) {
       return res.status(400).json({
         success: false,
-        error: "Not enough MCQs available for requested criteria",
+        error: "Student or standard not found in request context",
       });
     }
 
-    // Shuffle and pick
-    const selected = shuffle(candidates).slice(0, totalMarks);
+    // --- Validate input ---
+    if (!mcqs || !Array.isArray(mcqs) || mcqs.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No MCQs provided for PDF generation",
+      });
+    }
 
-    // Build paper items
-    const items = selected.map((mcq, idx) => ({
-      mcqId: mcq._id,
-      marks: 1, // default 1 mark
-      order: idx + 1,
+    // --- Fetch full MCQ data (for images, subjects, etc.) ---
+    const mcqDocs = await MCQModel.find({ _id: { $in: mcqs } })
+      .populate("subjectId categoryId")
+      .lean();
+
+    if (mcqDocs.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "No valid MCQs found for provided IDs",
+      });
+    }
+
+    // --- Build the HTML using your existing builder ---
+    const html = buildHTML(mcqDocs, pdfHeading || "Student Draft Paper");
+
+    // --- Generate PDF buffer with Puppeteer ---
+    const browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle2" });
+    await page.evaluateHandle("document.fonts.ready");
+    await new Promise((r) => setTimeout(r, 100));
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "40px", bottom: "40px", left: "40px", right: "40px" },
+    });
+
+    await browser.close();
+
+    // --- Save the generated PDF in /uploads/materials ---
+    const fileName = `StudentPaper_${Date.now()}.pdf`;
+    const uploadDir = path.join(__dirname, "../uploads/materials");
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+    const filePath = path.join(uploadDir, fileName);
+    fs.writeFileSync(filePath, pdfBuffer);
+
+    // --- Create Material entry (if you have Material model for file refs) ---
+    const materialDoc = await Material.create({
+      title: fileName,
+      type: "PDF",
+      path: `uploads/materials/${fileName}`,
+      uploadedBy: studentId,
+      uploadedByModel: "Student",
+      standardId,
+    });
+
+    // --- Derive subjects from MCQs ---
+    const subjectIds = [
+      ...new Set(mcqDocs.map((m) => m.subjectId?._id).filter(Boolean)),
+    ];
+
+    // --- Build Paper items array ---
+    const paperItems = mcqDocs.map((m, i) => ({
+      mcqId: m._id,
+      marks: 1,
+      order: i + 1,
     }));
 
-    const paper = new Paper({
-      title,
-      type: "GENERATED",
+    // --- Create Paper entry ---
+    const paper = await Paper.create({
+      title: title || "My Draft Paper",
+      type: "STUDENT_DRAFT",
       createdBy: studentId,
       createdByModel: "Student",
       standardId,
       subjectIds,
-      includeAnswers: false,
+      includeAnswers: !!includeAnswers,
       includeExplanations: false,
-      totalMarks,
-      items,
+      totalMarks: paperItems.length,
+      items: paperItems,
+      generatedPdf: {
+        fileId: materialDoc._id,
+        at: new Date(),
+      },
     });
 
-    await paper.save();
-
-    return res.json({ success: true, data: paper });
+    return res.status(201).json({
+      success: true,
+      message: "Paper generated and saved successfully.",
+      data: paper,
+    });
   } catch (err) {
-    console.error("generatePaper error:", err);
-    return res.status(500).json({ success: false, error: "Server error" });
+    console.error("Paper Generation Error:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate and save paper",
+    });
   }
 };
 

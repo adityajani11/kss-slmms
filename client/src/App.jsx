@@ -23,6 +23,9 @@ import GiveMCQTest from "./pages/student/GiveMCQTest";
 import MyGeneratedPapers from "./pages/student/MyGeneratedPapers";
 import TestHistory from "./pages/student/TestHistory";
 import SelectMCQs from "./components/SelectMCQs";
+import ViewAllMCQs from "./pages/student/ViewAllMCQs";
+
+import "katex/dist/katex.min.css";
 
 function App() {
   return (
@@ -78,6 +81,7 @@ function App() {
         <Route path="dashboard" element={<StudentDashboard />} />
         <Route path="manage-profile" element={<StudentProfileManage />} />
         <Route path="my-materials" element={<MyMaterials />} />
+        <Route path="view-mcqs" element={<ViewAllMCQs />} />
         <Route path="give-mcq-test" element={<GiveMCQTest />} />
         <Route path="my-generated-papers" element={<MyGeneratedPapers />} />
         <Route path="test-history" element={<TestHistory />} />

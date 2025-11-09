@@ -1,13 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  BookOpen,
-  Award,
-  FileQuestion,
-  TrendingUp,
-  CalendarDays,
-  Clock,
-  Star,
-} from "lucide-react";
+import { BookOpen, Award, FileQuestion, TrendingUp, Star } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function StudentDashboard() {
@@ -41,18 +33,6 @@ export default function StudentDashboard() {
     },
   ];
 
-  const upcomingExam = {
-    subject: "Mathematics - Algebra & Geometry",
-    date: "8th November 2025",
-    time: "10:00 AM - 11:30 AM",
-  };
-
-  const activities = [
-    { title: "Completed Physics Mock Test", time: "2 hours ago" },
-    { title: "Scored 85% in Chemistry Practice Paper", time: "Yesterday" },
-    { title: "Attempted Biology Quiz", time: "2 days ago" },
-  ];
-
   const quote = {
     text: "“Success doesn’t come to you, you go to it.”",
     author: "Marva Collins",
@@ -60,7 +40,7 @@ export default function StudentDashboard() {
 
   return (
     <div className="min-h-fit">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="mx-auto space-y-6">
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}

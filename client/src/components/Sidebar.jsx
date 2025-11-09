@@ -108,14 +108,19 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
     ],
     student: [
       {
+        label: "Dashboard",
+        icon: <LayoutDashboard size={18} />,
+        to: "/student/dashboard",
+      },
+      {
+        label: "View All MCQs",
+        icon: <FileQuestion size={18} />,
+        to: "/student/view-mcqs",
+      },
+      {
         label: "My Materials",
         icon: <FolderOpen size={18} />,
         to: "/student/my-materials",
-      },
-      {
-        label: "Give Mcq Test",
-        icon: <FileQuestion size={18} />,
-        to: "/student/give-mcq-test",
       },
       {
         label: "My Generated Papers",

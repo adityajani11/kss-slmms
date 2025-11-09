@@ -1,67 +1,104 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "mathlive";
 
 export default function MathEditor({ value, onChange }) {
   const ref = useRef(null);
+  const [mode, setMode] = useState("text"); // "text" or "math"
 
   useEffect(() => {
     const el = ref.current;
 
-    // Force permanent text mode (this stops the blue math-highlight block)
-    el.setOptions({
-      defaultMode: "text",
+    const baseOptions = {
       smartFence: false,
       removeExtraneousSpaces: false,
       letterShapeStyle: "upright",
-      smartMode: false, // <- KEY FIX (prevents auto-switch to math mode)
-      mathMode: "text", // <- FORCE editor to behave like normal text
-    });
-
-    // Remove blue background coloring inside shadow DOM
-    const removeBlueOverlay = () => {
-      const root = el.shadowRoot;
-      if (!root) return;
-
-      // These 3 layers cause the block highlight:
-      root
-        .querySelectorAll(".ML__selection, .ML__highlight, .ML__background")
-        .forEach((node) => (node.style.background = "transparent"));
     };
 
-    // Run once initially
-    removeBlueOverlay();
+    if (mode === "math") {
+      el.setOptions({
+        ...baseOptions,
+        defaultMode: "math",
+        smartMode: true,
+      });
+    } else {
+      el.setOptions({
+        ...baseOptions,
+        defaultMode: "text",
+        smartMode: false,
+      });
+    }
 
-    // Run again whenever rendering updates
-    const observer = new MutationObserver(removeBlueOverlay);
-    observer.observe(el.shadowRoot, { childList: true, subtree: true });
+    // Always update the value on input
+    const handleInput = () => {
+      const content = mode === "math" ? el.getValue("latex") : el.value; // ensure LaTeX in math mode
+      onChange(content);
+    };
+    el.addEventListener("input", handleInput);
 
-    el.addEventListener("input", () => onChange(el.value));
+    return () => el.removeEventListener("input", handleInput);
+  }, [mode, onChange]);
 
-    return () => observer.disconnect();
-  }, [onChange]);
+  // Toolbar configuration (LaTeX commands)
+  const toolbarSymbols = [
+    ["\\pi", "π"],
+    ["\\alpha", "α"],
+    ["\\beta", "β"],
+    ["\\gamma", "γ"],
+    ["\\lambda", "λ"],
+    ["\\theta", "θ"],
+    ["\\sin", "sin"],
+    ["\\cos", "cos"],
+    ["\\tan", "tan"],
+    ["^{\\circ}", "°"],
+    ["\\Delta", "Δ"],
+    ["\\sqrt{}", "√"],
+    ["\\frac{}{}", "a/b"],
+  ];
+
+  const insertSymbol = (cmd) => {
+    const el = ref.current;
+    if (!el) return;
+    if (mode === "math") {
+      // For math mode, insert LaTeX command
+      el.executeCommand("insert", cmd);
+    } else {
+      // In text mode, insert literal visible symbol or command text
+      el.executeCommand("insert", cmd.replace(/\\/g, ""));
+    }
+    el.focus();
+  };
 
   return (
     <div>
+      {/* Mode Toggle */}
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          type="button"
+          onClick={() => setMode((m) => (m === "math" ? "text" : "math"))}
+          className={`px-3 py-1 rounded text-sm font-medium border ${
+            mode === "math"
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-gray-100 text-gray-800 border-gray-400"
+          }`}
+        >
+          {mode === "math" ? "Math Mode (LaTeX)" : "Text Mode"}
+        </button>
+
+        <span className="text-xs text-gray-500">
+          {mode === "math"
+            ? "Type LaTeX commands, e.g. \\alpha, 10^{\\circ}"
+            : "Type Gujarati / English text"}
+        </span>
+      </div>
+
       {/* Toolbar */}
       <div className="flex flex-wrap gap-2 mb-2">
-        {[
-          ["\\pi", "π"],
-          ["\\alpha", "α"],
-          ["\\beta", "β"],
-          ["\\gamma", "γ"],
-          ["\\lambda", "λ"],
-          ["\\theta", "θ"],
-          ["\\sin", "sin"],
-          ["\\cos", "cos"],
-          ["\\tan", "tan"],
-          ["\\degree", "°"],
-          ["Δ", "Δ"],
-        ].map(([cmd, label]) => (
+        {toolbarSymbols.map(([cmd, label]) => (
           <button
-            key={label}
-            onClick={() => ref.current.executeCommand("insert", cmd)}
-            className="px-2 py-1 rounded border border-gray-400 bg-gray-50 hover:bg-gray-200 text-sm"
+            key={cmd}
+            onClick={() => insertSymbol(cmd)}
             type="button"
+            className="px-2 py-1 rounded border border-gray-400 bg-gray-50 hover:bg-gray-200 text-sm"
           >
             {label}
           </button>
@@ -71,8 +108,7 @@ export default function MathEditor({ value, onChange }) {
       {/* Editable Math Field */}
       <math-field
         ref={ref}
-        default-mode="text"
-        /* Also set vars inline here for first paint before useEffect runs */
+        default-mode={mode}
         style={{
           width: "100%",
           minHeight: "80px",
@@ -81,16 +117,13 @@ export default function MathEditor({ value, onChange }) {
           padding: "8px",
           background: "white",
           fontSize: "18px",
-          // 🔧 inline CSS vars (shadow DOM-safe)
-          ["--selection-background-color"]: "transparent",
-          ["--highlight-background-color"]: "transparent",
-          ["--mathlive-selection-background-color"]: "transparent",
-          ["--mathlive-suggestion-background-color"]: "transparent",
-          ["--virtual-keyboard-border-color"]: "transparent",
-          ["--virtual-keyboard-button-focus-outline-color"]: "transparent",
-          ["--caret-color"]: "#111",
+          "--selection-background-color": "transparent",
+          "--highlight-background-color": "transparent",
+          "--mathlive-selection-background-color": "transparent",
+          "--mathlive-suggestion-background-color": "transparent",
+          "--caret-color": "#111",
         }}
-        spellcheck="false"
+        spellCheck="false"
       >
         {value}
       </math-field>

@@ -114,11 +114,11 @@ export default function MyMaterial() {
   };
 
   return (
-    <div className="p-6">
+    <>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-3">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <BookOpen className="text-blue-600" /> My Materials
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+          📘 My Materials
         </h1>
 
         <div className="relative w-full md:w-1/3">
@@ -190,6 +190,6 @@ export default function MyMaterial() {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
