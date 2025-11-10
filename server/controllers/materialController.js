@@ -1,6 +1,7 @@
 const Material = require("../models/Material");
 const path = require("path");
 const fs = require("fs");
+const mongoose = require("mongoose");
 
 // ---------------- CREATE ----------------
 exports.create = async (req, res) => {
@@ -139,25 +140,35 @@ exports.getByStandard = async (req, res) => {
         .json({ success: false, error: "standardId is required" });
     }
 
-    const materials = await Material.find({
-      standardId,
-      deleted: { $ne: true },
-    })
-      .populate("standardId", "standard")
-      .populate("subjectId", "name")
-      .populate("categoryId", "name")
-      .sort({ createdAt: -1 });
+    // Exclude all materials uploaded by students (case-insensitive)
+    const materials = await mongoose.connection.db
+      .collection("materials") // direct native Mongo query
+      .find({
+        standardId: new mongoose.Types.ObjectId(standardId),
+        deleted: { $ne: true },
+        $or: [
+          { uploadedByModel: { $exists: false } },
+          { uploadedByModel: { $not: /^student$/i } },
+        ],
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
 
     if (!materials || materials.length === 0) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "No material found for this standard.",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "No material found for this standard.",
+      });
     }
 
-    res.json({ success: true, data: materials });
+    // Repopulate manually since we used native query
+    const populated = await Material.populate(materials, [
+      { path: "standardId", select: "standard" },
+      { path: "subjectId", select: "name" },
+      { path: "categoryId", select: "name" },
+    ]);
+
+    res.json({ success: true, data: populated });
   } catch (err) {
     console.error("Error fetching materials:", err);
     res.status(500).json({ success: false, error: "Server error" });

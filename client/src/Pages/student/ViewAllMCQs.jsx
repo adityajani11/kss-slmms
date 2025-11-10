@@ -166,30 +166,24 @@ export default function ViewAllMCQs() {
         "info"
       );
 
-    const { value: includeAnswers } = await Swal.fire({
-      title: "Download PDF",
-      input: "select",
-      inputOptions: {
-        withAnswers: "With Answers",
-        withoutAnswers: "Without Answers",
-      },
-      inputPlaceholder: "Select PDF type",
+    const confirm = await Swal.fire({
+      title: "Download PDF?",
+      text: "Do you want to download the selected MCQs as PDF?",
+      icon: "question",
       showCancelButton: true,
-      confirmButtonText: "Download",
+      confirmButtonText: "Yes, Download",
+      cancelButtonText: "Cancel",
     });
 
-    if (!includeAnswers) return;
+    if (!confirm.isConfirmed) return;
 
     try {
       const response = await axios.post(
         `${base}/mcqs/pdf`,
         {
           mcqs: mcqs.filter((m) => selectedMCQs.includes(m._id)),
-          pdfHeading:
-            includeAnswers === "withAnswers"
-              ? "MCQ Paper (With Answers)"
-              : "MCQ Paper",
-          includeAnswers: includeAnswers === "withAnswers",
+          pdfHeading: "MCQ Paper",
+          includeAnswers: showAnswers,
         },
         { responseType: "blob" }
       );
@@ -198,10 +192,9 @@ export default function ViewAllMCQs() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download =
-        includeAnswers === "withAnswers"
-          ? "MCQs_With_Answers.pdf"
-          : "MCQs_Without_Answers.pdf";
+      a.download = showAnswers
+        ? "MCQs_With_Answers.pdf"
+        : "MCQs_Without_Answers.pdf";
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (error) {
@@ -219,6 +212,14 @@ export default function ViewAllMCQs() {
       );
     }
 
+    if (!selectedSubject) {
+      return Swal.fire(
+        "⚠️ Subject Required",
+        "Please select at least one subject before saving your paper.",
+        "warning"
+      );
+    }
+
     const { value: paperTitle } = await Swal.fire({
       title: "Enter Paper Title",
       input: "text",
@@ -230,21 +231,17 @@ export default function ViewAllMCQs() {
     if (!paperTitle) return;
 
     try {
-      const response = await axios.post(
-        `${base}/papers/generate`,
-        {
-          mcqs: selectedMCQs, // send only IDs, backend fetches full data
-          pdfHeading: paperTitle,
-          includeAnswers: showAnswers,
-          title: paperTitle,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-      if (response.status === 200) {
+      const response = await axios.post(`${base}/papers/generate`, {
+        mcqs: selectedMCQs,
+        pdfHeading: paperTitle,
+        includeAnswers: showAnswers,
+        title: paperTitle,
+        studentId: user?._id || user?.id,
+        standardId: user?.standard?._id || user?.standardId,
+        subjectId: selectedSubject,
+      });
+
+      if (response.status === 200 || response.status === 201) {
         Swal.fire({
           icon: "success",
           title: "Paper Saved!",
@@ -253,23 +250,14 @@ export default function ViewAllMCQs() {
           showConfirmButton: false,
         });
       }
-    } catch (error) {
-      console.error(error);
-      Swal.fire("❌ Error", "Failed to save paper.", "error");
-    }
-  };
-
-  /* ---------- Prepare Live Test ---------- */
-  const handleLiveTest = () => {
-    if (selectedMCQs.length === 0)
-      return Swal.fire(
-        "⚠️ No MCQs Selected",
-        "Please select at least one MCQ.",
-        "info"
+    } catch (err) {
+      console.error("Paper Generation Error:", err);
+      Swal.fire(
+        "❌ Error",
+        err.response?.data?.error || "Failed to save paper.",
+        "error"
       );
-
-    localStorage.setItem("selectedLiveTestMCQs", JSON.stringify(selectedMCQs));
-    navigate("/student/live-test");
+    }
   };
 
   return (
@@ -504,25 +492,21 @@ export default function ViewAllMCQs() {
                 <button
                   onClick={handleDownloadPDF}
                   className="bg-blue-600/90 hover:bg-blue-700 text-white px-4 py-2 rounded-lg 
-        font-semibold text-sm shadow-md backdrop-blur-sm transition-all duration-200"
+                    font-semibold text-sm shadow-md backdrop-blur-sm transition-all duration-200"
                 >
                   🧾 Save as PDF
                 </button>
 
                 <button
                   onClick={handleSavePaper}
-                  className="bg-purple-600/90 hover:bg-purple-700 text-white px-4 py-2 rounded-lg 
-  font-semibold text-sm shadow-md backdrop-blur-sm transition-all duration-200"
+                  disabled={!selectedSubject}
+                  className={`px-4 py-2 rounded-lg font-semibold text-sm shadow-md backdrop-blur-sm transition-all duration-200 ${
+                    selectedSubject
+                      ? "bg-purple-600/90 hover:bg-purple-700 text-white"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
                 >
                   💾 Save as Draft Paper
-                </button>
-
-                <button
-                  onClick={handleLiveTest}
-                  className="bg-green-600/90 hover:bg-green-700 text-white px-4 py-2 rounded-lg 
-        font-semibold text-sm shadow-md backdrop-blur-sm transition-all duration-200"
-                >
-                  🧠 Prepare for Live Test
                 </button>
               </div>
             </div>

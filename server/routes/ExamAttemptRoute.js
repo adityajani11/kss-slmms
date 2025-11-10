@@ -1,13 +1,10 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const ctrl = require('../controllers/examAttemptController');
+const examAttemptController = require("../controllers/examAttemptController");
 
-router.post('/start', ctrl.start);
-router.post('/submit', ctrl.submit);
-router.get('/', ctrl.list);
-router.get('/:id', ctrl.getById);
-router.delete('/:id', ctrl.softDelete);
-router.post('/:id/restore', ctrl.restore);
-router.delete('/:id/hard', ctrl.hardDelete);
+// POST - submit exam attempt
+router.post("/submit", examAttemptController.submitExamAttempt);
+
+router.get("/history", examAttemptController.getExamHistory);
 
 module.exports = router;

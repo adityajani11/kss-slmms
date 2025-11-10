@@ -9,6 +9,14 @@ const materialSchema = new Schema(
       trim: true,
     },
 
+    path: {
+      type: String,
+      required: function () {
+        return this.isNew; // required only when creating a new Material
+      },
+      trim: true,
+    },
+
     // File info (PDF stored in local FS or AWS)
     file: {
       storage: {
@@ -18,7 +26,7 @@ const materialSchema = new Schema(
       },
       fileId: {
         type: String, // path or S3 key
-        required: true,
+        required: false,
       },
       size: Number, // file size in bytes
       mime: {
@@ -26,14 +34,6 @@ const materialSchema = new Schema(
         default: "application/pdf",
       },
     },
-
-    // uploadedBy: {
-    //   type: Schema.Types.ObjectId,
-    //   ref: "StaffAdmin",
-    //   required: true,
-    // },
-
-    // Associations
     standardId: {
       type: Schema.Types.ObjectId,
       ref: "Standard",
@@ -48,6 +48,14 @@ const materialSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Category",
       required: true,
+    },
+    uploadedBy: {
+      type: Schema.Types.ObjectId,
+      refPath: "uploadedByModel",
+    },
+    uploadedByModel: {
+      type: String,
+      enum: ["student", "staffadmin"],
     },
   },
   { timestamps: true }

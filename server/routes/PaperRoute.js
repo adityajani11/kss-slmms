@@ -7,7 +7,7 @@ router.post("/start", ctrl.startExam);
 router.get("/attempt/:attemptId", ctrl.getAttempt);
 router.post("/submit", ctrl.submitExam);
 router.get("/history", ctrl.getHistory);
-router.get("/mine", ctrl.getGeneratedPapers);
-router.get("/:paperId/download", ctrl.downloadPaperPdf);
-
+router.get("/mine", ctrl.getMyPapers);
+router.get("/:paperId/download", ctrl.downloadPaper);
+router.get("/:paperId/mcqs", ctrl.getPaperMcqs);
 module.exports = router;

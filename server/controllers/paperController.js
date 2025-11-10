@@ -6,7 +6,7 @@ const ExamAttempt = require("../models/ExamAttempt");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
 const fs = require("fs");
 const path = require("path");
-const { buildHTML } = require("./mcqController");
+const { buildHTML } = require("../utils/buildHTML");
 const puppeteer = require("puppeteer");
 const Material = require("../models/Material");
 
@@ -18,18 +18,24 @@ function shuffle(arr) {
 /* ---------- SAVE STUDENT-GENERATED PAPER ---------- */
 exports.generatePaper = async (req, res) => {
   try {
-    const { mcqs, pdfHeading, includeAnswers, title } = req.body;
-    const studentId = req.user?._id; // from auth middleware
-    const standardId = req.user?.standardId;
+    const {
+      mcqs,
+      pdfHeading,
+      includeAnswers,
+      title,
+      studentId,
+      standardId,
+      subjectId,
+    } = req.body;
 
+    // --- Validate input ---
     if (!studentId || !standardId) {
       return res.status(400).json({
         success: false,
-        error: "Student or standard not found in request context",
+        error: "studentId and standardId are required (dev mode)",
       });
     }
 
-    // --- Validate input ---
     if (!mcqs || !Array.isArray(mcqs) || mcqs.length === 0) {
       return res.status(400).json({
         success: false,
@@ -37,7 +43,7 @@ exports.generatePaper = async (req, res) => {
       });
     }
 
-    // --- Fetch full MCQ data (for images, subjects, etc.) ---
+    // --- Fetch MCQs ---
     const mcqDocs = await MCQModel.find({ _id: { $in: mcqs } })
       .populate("subjectId categoryId")
       .lean();
@@ -49,10 +55,10 @@ exports.generatePaper = async (req, res) => {
       });
     }
 
-    // --- Build the HTML using your existing builder ---
+    // --- Build HTML ---
     const html = buildHTML(mcqDocs, pdfHeading || "Student Draft Paper");
 
-    // --- Generate PDF buffer with Puppeteer ---
+    // --- Generate PDF using Puppeteer ---
     const browser = await puppeteer.launch({
       headless: "new",
       args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
@@ -71,30 +77,41 @@ exports.generatePaper = async (req, res) => {
 
     await browser.close();
 
-    // --- Save the generated PDF in /uploads/materials ---
-    const fileName = `StudentPaper_${Date.now()}.pdf`;
-    const uploadDir = path.join(__dirname, "../uploads/materials");
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    // --- Create folder for student ---
+    const baseDir = path.join(__dirname, "../uploads/materials");
+    const studentDir = path.join(baseDir, studentId.toString());
 
-    const filePath = path.join(uploadDir, fileName);
+    if (!fs.existsSync(studentDir)) {
+      fs.mkdirSync(studentDir, { recursive: true });
+    }
+
+    // --- Save generated PDF ---
+    const fileName = `StudentPaper_${Date.now()}.pdf`;
+    const filePath = path.join(studentDir, fileName);
     fs.writeFileSync(filePath, pdfBuffer);
 
-    // --- Create Material entry (if you have Material model for file refs) ---
+    // --- Save relative path for DB (for static serving) ---
+    const relativePath = `uploads/materials/${studentId}/${fileName}`;
+
+    // --- Create Material record ---
     const materialDoc = await Material.create({
       title: fileName,
       type: "PDF",
-      path: `uploads/materials/${fileName}`,
+      path: relativePath,
       uploadedBy: studentId,
-      uploadedByModel: "Student",
+      uploadedByModel: "student",
       standardId,
+      subjectId,
+      categoryId: mcqDocs[0]?.categoryId?._id || undefined,
+      file: { fileId: null },
     });
 
-    // --- Derive subjects from MCQs ---
+    // --- Subjects from MCQs ---
     const subjectIds = [
       ...new Set(mcqDocs.map((m) => m.subjectId?._id).filter(Boolean)),
     ];
 
-    // --- Build Paper items array ---
+    // --- Paper Items ---
     const paperItems = mcqDocs.map((m, i) => ({
       mcqId: m._id,
       marks: 1,
@@ -119,7 +136,7 @@ exports.generatePaper = async (req, res) => {
       },
     });
 
-    return res.status(201).json({
+    return res.status(200).json({
       success: true,
       message: "Paper generated and saved successfully.",
       data: paper,
@@ -130,6 +147,167 @@ exports.generatePaper = async (req, res) => {
       success: false,
       error: "Failed to generate and save paper",
     });
+  }
+};
+
+/* Get student generated paper */
+exports.getMyPapers = async (req, res) => {
+  try {
+    const studentId = req.user?._id || req.query.studentId;
+
+    if (!studentId) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing studentId or not authenticated.",
+      });
+    }
+
+    const papers = await Paper.find({
+      createdBy: studentId,
+      createdByModel: "Student",
+      type: "STUDENT_DRAFT",
+    })
+      .populate("generatedPdf.fileId", "path title")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: papers,
+    });
+  } catch (err) {
+    console.error("Get Papers Error:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to retrieve your papers.",
+    });
+  }
+};
+
+/* ---------- DOWNLOAD PAPER AS PDF (with KaTeX + Gujarati support) ---------- */
+exports.downloadPaper = async (req, res) => {
+  try {
+    const { paperId } = req.params;
+    const { answers, studentId } = req.query;
+
+    const includeAnswers = answers === "true";
+
+    // 🔍 Find paper
+    const paper = await Paper.findOne({
+      _id: paperId,
+      createdBy: studentId,
+      createdByModel: "Student",
+    });
+
+    if (!paper) {
+      return res.status(404).json({
+        success: false,
+        error: "Paper not found or access denied.",
+      });
+    }
+
+    // 🧠 Fetch MCQs for this paper
+    const paperDoc = await Paper.findById(paperId).populate({
+      path: "items.mcqId",
+      populate: { path: "subjectId categoryId" },
+    });
+
+    const mcqs = paperDoc.items.map((i) => i.mcqId).filter(Boolean);
+
+    // 🧩 Build dynamic HTML with KaTeX + Gujarati + filters
+    const html = buildHTML(mcqs, paper.title || "Student Paper", {
+      includeAnswers,
+      includeExplanations: includeAnswers,
+    });
+
+    // 🧾 Generate PDF via Puppeteer
+    const browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle2" });
+
+    // Wait for all fonts and KaTeX math to finish rendering
+    await page.evaluateHandle("document.fonts.ready");
+    await new Promise((r) => setTimeout(r, 400));
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "40px", bottom: "40px", left: "40px", right: "40px" },
+    });
+
+    await browser.close();
+
+    // 📨 Send PDF to client
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${
+        paper.title || "StudentPaper"
+      }.pdf"`,
+    });
+
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error("❌ Paper Download Error:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message || "Failed to prepare or download paper.",
+    });
+  }
+};
+
+/* ======================================================
+   GET /api/v1/papers/:paperId/mcqs
+   Fetch all MCQs of a paper (for live exam)
+====================================================== */
+exports.getPaperMcqs = async (req, res) => {
+  try {
+    const { paperId } = req.params;
+
+    const paper = await Paper.findById(paperId)
+      .populate({
+        path: "items.mcqId",
+        populate: [
+          { path: "standardId", select: "standard" },
+          { path: "subjectId", select: "name" },
+        ],
+      })
+      .lean();
+
+    if (!paper)
+      return res
+        .status(404)
+        .json({ success: false, message: "Paper not found" });
+
+    // Extract and normalize MCQs
+    const mcqs = paper.items
+      .filter((item) => item.mcqId)
+      .map((item) => {
+        const mcq = item.mcqId;
+        return {
+          _id: mcq._id,
+          question: mcq.question.text,
+          options: mcq.options.map((opt) => opt.label),
+          correctOption: mcq.options.findIndex((opt) => opt.isCorrect),
+          explanation: mcq.explanation || "",
+          marks: item.marks || 1,
+          order: item.order || 0,
+        };
+      });
+
+    return res.json({
+      success: true,
+      message: "MCQs fetched successfully",
+      data: mcqs,
+    });
+  } catch (err) {
+    console.error("❌ Error fetching paper MCQs:", err);
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error while fetching MCQs" });
   }
 };
 
