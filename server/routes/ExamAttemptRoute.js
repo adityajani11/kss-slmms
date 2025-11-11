@@ -7,4 +7,16 @@ router.post("/submit", examAttemptController.submitExamAttempt);
 
 router.get("/history", examAttemptController.getExamHistory);
 
+// Delete specific attempt
+router.delete(
+  "/delete/:studentId/:attemptId",
+  examAttemptController.deleteExamAttempt
+);
+
+// Delete all attempts of a paper
+router.delete(
+  "/delete-all/:studentId/:paperId",
+  examAttemptController.deletePaperAttempts
+);
+
 module.exports = router;

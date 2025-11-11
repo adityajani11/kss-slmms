@@ -110,3 +110,53 @@ exports.getExamHistory = async (req, res) => {
       .json({ success: false, message: "Server error while fetching history" });
   }
 };
+
+/* ---------- DELETE SPECIFIC ATTEMPT ---------- */
+exports.deleteExamAttempt = async (req, res) => {
+  try {
+    const { attemptId, studentId } = req.params;
+
+    const attempt = await ExamAttempt.findOne({
+      _id: attemptId,
+      studentId,
+    });
+
+    if (!attempt)
+      return res
+        .status(404)
+        .json({ success: false, message: "Attempt not found or not yours" });
+
+    await ExamAttempt.deleteOne({ _id: attemptId });
+
+    res.json({
+      success: true,
+      message: "Attempt deleted successfully",
+    });
+  } catch (err) {
+    console.error("Error deleting attempt:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error while deleting attempt",
+    });
+  }
+};
+
+/* ---------- DELETE ALL ATTEMPTS FOR A PAPER ---------- */
+exports.deletePaperAttempts = async (req, res) => {
+  try {
+    const { paperId, studentId } = req.params;
+
+    const result = await ExamAttempt.deleteMany({ paperId, studentId });
+
+    res.json({
+      success: true,
+      message: `${result.deletedCount} attempt(s) deleted successfully`,
+    });
+  } catch (err) {
+    console.error("Error deleting paper attempts:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error while deleting paper attempts",
+    });
+  }
+};

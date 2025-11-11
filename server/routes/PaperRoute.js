@@ -10,4 +10,5 @@ router.get("/history", ctrl.getHistory);
 router.get("/mine", ctrl.getMyPapers);
 router.get("/:paperId/download", ctrl.downloadPaper);
 router.get("/:paperId/mcqs", ctrl.getPaperMcqs);
+router.delete("/delete/:studentId/:paperId", ctrl.deletePaper);
 module.exports = router;

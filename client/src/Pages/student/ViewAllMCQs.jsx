@@ -4,7 +4,6 @@ import Swal from "sweetalert2";
 import { Spin, Switch, Select, Tag, Checkbox } from "antd";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { useNavigate } from "react-router-dom";
 import { ChevronUp, ChevronDown } from "lucide-react"; // for toggle icons
 
 const { Option } = Select;
@@ -55,12 +54,12 @@ export default function ViewAllMCQs() {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedMCQs, setSelectedMCQs] = useState([]);
-  const [isBarExpanded, setIsBarExpanded] = useState(true);
+  const [isBarExpanded, setIsBarExpanded] = useState(false);
 
   const base = import.meta.env.VITE_API_BASE_URL;
   const fileBase = base.replace("/api/v1", "");
   const user = JSON.parse(localStorage.getItem("user"));
-  const navigate = useNavigate();
+  const isLimitReached = selectedMCQs.length >= 120;
 
   /* ---------- Fetch MCQs ---------- */
   useEffect(() => {
@@ -177,6 +176,7 @@ export default function ViewAllMCQs() {
 
     if (!confirm.isConfirmed) return;
 
+    setLoading(true); // ✅ start loader
     try {
       const response = await axios.post(
         `${base}/mcqs/pdf`,
@@ -199,6 +199,8 @@ export default function ViewAllMCQs() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       Swal.fire("❌ Error", "Failed to download PDF.", "error");
+    } finally {
+      setLoading(false); // ✅ stop loader
     }
   };
 
@@ -230,6 +232,7 @@ export default function ViewAllMCQs() {
 
     if (!paperTitle) return;
 
+    setLoading(true); // ✅ start loader
     try {
       const response = await axios.post(`${base}/papers/generate`, {
         mcqs: selectedMCQs,
@@ -257,72 +260,99 @@ export default function ViewAllMCQs() {
         err.response?.data?.error || "Failed to save paper.",
         "error"
       );
+    } finally {
+      setLoading(false); // ✅ stop loader
     }
   };
 
   return (
     <div className="min-h-fit">
       {/* ---------- Header ---------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <h1 className="text-xl font-bold text-gray-800 text-center sm:text-left flex items-center justify-center gap-2">
-          📘 <span>View All MCQs</span>
-        </h1>
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h1 className="text-xl font-bold text-gray-800 flex items-center justify-between sm:justify-start gap-2">
+            📘 <span>View All MCQs</span>
+            {/* ✅ Toggle filters visibility (only visible on mobile) */}
+            <button
+              onClick={() => setIsBarExpanded((prev) => !prev)}
+              className="sm:hidden text-gray-600 hover:text-blue-600 transition ml-auto"
+            >
+              {isBarExpanded ? (
+                <ChevronUp size={20} />
+              ) : (
+                <ChevronDown size={20} />
+              )}
+            </button>
+          </h1>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
-          <span className="text-gray-700 font-medium text-center sm:text-left">
-            {showAnswers ? "Showing Answers" : "🙈 Hidden Answers"}
-          </span>
-          <Switch
-            checked={showAnswers}
-            onChange={(checked) => setShowAnswers(checked)}
-            checkedChildren="Hide"
-            unCheckedChildren="Show"
-            className="scale-110"
-          />
+          {/* ✅ Show/Hide Answers Switch */}
+          <div className="flex items-center justify-between sm:justify-end gap-2">
+            <span className="text-gray-700 font-medium text-sm sm:text-base">
+              {showAnswers ? "Showing Answers" : "🙈 Hidden Answers"}
+            </span>
+            <Switch
+              checked={showAnswers}
+              onChange={(checked) => setShowAnswers(checked)}
+              checkedChildren="Hide"
+              unCheckedChildren="Show"
+              className="scale-110"
+            />
+          </div>
         </div>
       </div>
 
-      {/* ---------- Filters ---------- */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-          <Select
-            allowClear
-            placeholder="Filter by Subject"
-            className="min-w-[180px]"
-            value={selectedSubject}
-            onChange={(value) => setSelectedSubject(value || null)}
-          >
-            {subjects.map((s) => (
-              <Option key={s._id} value={s._id}>
-                {s.name}
-              </Option>
-            ))}
-          </Select>
+      {/* ---------- Filters (collapsible on mobile) ---------- */}
+      <div
+        className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 ${
+          isBarExpanded
+            ? "max-h-[500px] opacity-100 mb-6"
+            : "max-h-0 opacity-0 sm:max-h-none sm:opacity-100 sm:mb-6"
+        }`}
+      >
+        <div className="p-4 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <Select
+              allowClear
+              placeholder="Filter by Subject"
+              className="min-w-[180px]"
+              value={selectedSubject}
+              onChange={(value) => {
+                setSelectedSubject(value || null);
+                setSelectedMCQs([]);
+              }}
+            >
+              {subjects.map((s) => (
+                <Option key={s._id} value={s._id}>
+                  {s.name}
+                </Option>
+              ))}
+            </Select>
 
-          <Select
-            allowClear
-            placeholder="Filter by Category"
-            className="min-w-[180px]"
-            value={selectedCategory}
-            onChange={(value) => setSelectedCategory(value || null)}
+            <Select
+              allowClear
+              placeholder="Filter by Category"
+              className="min-w-[180px]"
+              value={selectedCategory}
+              onChange={(value) => setSelectedCategory(value || null)}
+            >
+              {categories.map((c) => (
+                <Option key={c._id} value={c._id}>
+                  {c.name}
+                </Option>
+              ))}
+            </Select>
+          </div>
+
+          <button
+            onClick={() => {
+              setSelectedCategory(null);
+              setSelectedSubject(null);
+            }}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-md transition-all w-full sm:w-auto"
           >
-            {categories.map((c) => (
-              <Option key={c._id} value={c._id}>
-                {c.name}
-              </Option>
-            ))}
-          </Select>
+            🔄 Reset Filters
+          </button>
         </div>
-
-        <button
-          onClick={() => {
-            setSelectedCategory(null);
-            setSelectedSubject(null);
-          }}
-          className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-md transition-all"
-        >
-          🔄 Reset Filters
-        </button>
       </div>
 
       {/* ---------- Main MCQ Grid ---------- */}
@@ -352,6 +382,7 @@ export default function ViewAllMCQs() {
                   <Checkbox
                     checked={isSelected}
                     onChange={() => toggleMCQSelection(mcq._id)}
+                    disabled={!isSelected && isLimitReached} // Prevent checking when limit hit
                     className="absolute top-3 right-3"
                   />
 
@@ -455,10 +486,14 @@ export default function ViewAllMCQs() {
           </div>
 
           {/* ---------- Sticky Collapsible Floating Bar (Glass Tint Effect) ---------- */}
-          <div className="fixed bottom-3 left-1/2 transform -translate-x-1/2 w-[95%] sm:w-auto backdrop-blur-lg bg-gradient-to-r from-blue-50/60 via-white/60 to-blue-100/50 shadow-2xl border border-blue-300/40 px-4 py-3 rounded-2xl z-50 transition-all duration-300">
+          <div className="fixed bottom-3 left-1/2 transform -translate-x-1/2 w-[95%] sm:w-auto backdrop-blur-lg bg-gradient-to-r from-blue-50/60 via-white/60 to-blue-100/50 shadow-2xl border border-blue-300/40 px-4 py-3 rounded-2xl z-30 transition-all duration-300">
             <div className="flex items-center justify-between gap-3">
-              <span className="font-medium text-gray-800">
-                🧩 {selectedMCQs.length} MCQs Selected
+              <span
+                className={`font-medium ${
+                  isLimitReached ? "text-red-600" : "text-gray-800"
+                }`}
+              >
+                🧩 {selectedMCQs.length}/120 MCQs Selected
               </span>
               <button
                 onClick={() => setIsBarExpanded(!isBarExpanded)}
@@ -472,6 +507,13 @@ export default function ViewAllMCQs() {
               </button>
             </div>
 
+            {/* ✅ show warning message if limit reached */}
+            {isLimitReached && (
+              <div className="text-center text-red-600 text-sm mt-1 font-medium animate-pulse">
+                ⚠️ Maximum limit (120 MCQs) reached.
+              </div>
+            )}
+
             <div
               className={`transition-all overflow-hidden ${
                 isBarExpanded
@@ -482,7 +524,13 @@ export default function ViewAllMCQs() {
               <div className="flex flex-wrap items-center gap-3 justify-center sm:justify-start">
                 <button
                   onClick={handleToggleSelectAll}
-                  className="bg-white/50 hover:bg-blue-100/60 text-blue-800 px-4 py-2 rounded-lg font-semibold text-sm backdrop-blur-sm border border-blue-200/40 transition-all duration-200 shadow-sm"
+                  className={`px-4 py-2 rounded-lg font-semibold text-sm backdrop-blur-sm border transition-all duration-200 shadow-sm
+      ${
+        isLimitReached
+          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+          : "bg-white/50 hover:bg-blue-100/60 text-blue-800 border-blue-200/40"
+      }`}
+                  disabled={isLimitReached}
                 >
                   {filteredMCQs.every((id) => selectedMCQs.includes(id._id))
                     ? "❌ Deselect All"
@@ -491,19 +539,24 @@ export default function ViewAllMCQs() {
 
                 <button
                   onClick={handleDownloadPDF}
-                  className="bg-blue-600/90 hover:bg-blue-700 text-white px-4 py-2 rounded-lg 
-                    font-semibold text-sm shadow-md backdrop-blur-sm transition-all duration-200"
+                  disabled={isLimitReached}
+                  className={`px-4 py-2 rounded-lg font-semibold text-sm shadow-md backdrop-blur-sm transition-all duration-200
+      ${
+        isLimitReached
+          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+          : "bg-blue-600/90 hover:bg-blue-700 text-white"
+      }`}
                 >
                   🧾 Save as PDF
                 </button>
 
                 <button
                   onClick={handleSavePaper}
-                  disabled={!selectedSubject}
+                  disabled={!selectedSubject || isLimitReached}
                   className={`px-4 py-2 rounded-lg font-semibold text-sm shadow-md backdrop-blur-sm transition-all duration-200 ${
-                    selectedSubject
-                      ? "bg-purple-600/90 hover:bg-purple-700 text-white"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    !selectedSubject || isLimitReached
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-purple-600/90 hover:bg-purple-700 text-white"
                   }`}
                 >
                   💾 Save as Draft Paper

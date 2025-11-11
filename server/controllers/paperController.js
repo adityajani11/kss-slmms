@@ -282,15 +282,33 @@ exports.getPaperMcqs = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Paper not found" });
 
-    // Extract and normalize MCQs
+    // ✅ Helper to normalize image paths (fixes Windows backslashes)
+    const normalizeImage = (imgPath) => {
+      if (!imgPath) return null;
+      if (imgPath.startsWith("http")) return imgPath;
+      return imgPath
+        .replace(/\\/g, "/") // replace backslashes with slashes
+        .replace(/^\/+/, ""); // remove leading slashes if any
+    };
+
+    // ✅ Build MCQs with normalized image URLs
     const mcqs = paper.items
       .filter((item) => item.mcqId)
       .map((item) => {
         const mcq = item.mcqId;
         return {
           _id: mcq._id,
-          question: mcq.question.text,
-          options: mcq.options.map((opt) => opt.label),
+          question: {
+            text: mcq.question.text,
+            image: normalizeImage(mcq.question.image),
+            language: mcq.question.language,
+            font: mcq.question.font,
+          },
+          options: mcq.options.map((opt) => ({
+            label: opt.label,
+            image: normalizeImage(opt.image),
+            isCorrect: opt.isCorrect,
+          })),
           correctOption: mcq.options.findIndex((opt) => opt.isCorrect),
           explanation: mcq.explanation || "",
           marks: item.marks || 1,
@@ -305,9 +323,10 @@ exports.getPaperMcqs = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Error fetching paper MCQs:", err);
-    return res
-      .status(500)
-      .json({ success: false, message: "Server error while fetching MCQs" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching MCQs",
+    });
   }
 };
 
@@ -526,6 +545,38 @@ exports.getGeneratedPapers = async (req, res) => {
   }
 };
 
+/* ---------- DELETE STUDENT'S PAPER ---------- */
+exports.deletePaper = async (req, res) => {
+  try {
+    const { paperId, studentId } = req.params;
+
+    const paper = await Paper.findOne({
+      _id: paperId,
+      createdBy: studentId,
+      createdByModel: "Student",
+    });
+
+    if (!paper) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Paper not found or not yours" });
+    }
+
+    await Paper.deleteOne({ _id: paperId });
+
+    return res.json({
+      success: true,
+      message: "Paper deleted successfully",
+    });
+  } catch (err) {
+    console.error("Error deleting paper:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error while deleting paper",
+    });
+  }
+};
+
 /**
  * Download/generate PDF for a paper.
  * Route: GET /papers/:paperId/download?answers=true&explanations=true&type=WITH_ANSWERS
@@ -612,7 +663,7 @@ exports.downloadPaperPdf = async (req, res) => {
     // Watermark on every page (simple diagonal)
     const pages = pdfDoc.getPages();
     pages.forEach((pg) => {
-      pg.drawText("KRISHNA SCHOOL GROUP KESHOD", {
+      pg.drawText("KRISHNA SCHOOL GROUP", {
         x: 100,
         y: 200,
         size: 40,

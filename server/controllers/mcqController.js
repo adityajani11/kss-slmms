@@ -390,7 +390,7 @@ function buildHTML(mcqs, pdfHeading = "") {
       }
 
       body::before {
-        content: "KRISHNA SCHOOL KESHOD";
+        content: "KRISHNA SCHOOL GROUP";
         position: fixed;
         top: 50%;
         left: 50%;
@@ -513,7 +513,7 @@ function buildHTML(mcqs, pdfHeading = "") {
   </head>
   <body>
     <div class="header">
-      <div class="school-name">KRISHNA SCHOOL KESHOD</div>
+      <div class="school-name">KRISHNA SCHOOL GROUP</div>
       <div class="divider"></div>
       <div class="pdf-heading">${wrapGujarati(safeHeading)}</div>
     </div>

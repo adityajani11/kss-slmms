@@ -9,31 +9,86 @@ import {
   PlayCircle,
   XCircle,
   CheckCircle,
+  Trash2,
 } from "lucide-react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 
-/* ---------- Safe KaTeX / Gujarati Renderer ---------- */
-const renderSafeKatex = (content) => {
-  if (!content) return "";
-  const hasMath = /\\|{|}|\\frac|\\sqrt|\\sum|\\int|\\pi|\$|_|\\^/.test(
-    content
-  );
-  if (hasMath) {
-    try {
-      return katex.renderToString(content, { throwOnError: false });
-    } catch {
-      return content;
-    }
-  }
-  // Handle Gujarati or plain text safely
-  return content
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\n/g, "<br>");
+// ✅ Utility to build full image URLs safely
+const buildImageURL = (base, imgPath) => {
+  if (!imgPath) return null;
+  if (imgPath.startsWith("http")) return imgPath;
+
+  // Remove trailing /api or /api/v1 from base URL if present
+  const cleanBase = base.replace(/\/api(\/v1)?\/?$/, "").replace(/\/$/, "");
+  const cleanPath = imgPath.replace(/^\/+/, "");
+
+  return `${cleanBase}/${cleanPath}`;
 };
 
-/* ---------- Live Exam Modal (memoized to avoid rerenders) ---------- */
+/* ---------- Enhanced KaTeX + Image + Gujarati Renderer ---------- */
+const renderSafeKatex = (content = "") => {
+  if (!content) return "";
+
+  // --- 1️⃣ Preserve <img> tags safely, escape other HTML ---
+  let sanitized = content
+    .replace(/<img(.*?)>/g, (match) => `[[IMG${match}IMG]]`) // temp mark images
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>")
+    .replace(/\[\[IMG(.*?)IMG\]\]/g, "<img$1>"); // restore allowed <img> tags
+
+  // --- 2️⃣ Detect any math syntax ---
+  const hasMath =
+    /(\$+.*\$+|\\frac|\\sqrt|\\sum|\\int|\\pi|\\theta|\\sin|\\cos|\\tan|\\begin{)/.test(
+      sanitized
+    );
+  if (!hasMath) return sanitized;
+
+  try {
+    // --- 3️⃣ Split block and inline math separately ---
+    // Block: $$...$$ or \[...\]
+    sanitized = sanitized.replace(
+      /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]/g,
+      (_, a, b) =>
+        `<span class="katex-block">${katex.renderToString(a || b, {
+          throwOnError: false,
+          displayMode: true,
+          trust: true,
+        })}</span>`
+    );
+
+    // Inline: $...$ or \(..\)
+    sanitized = sanitized.replace(
+      /\$(.+?)\$|\\\((.+?)\\\)/g,
+      (_, a, b) =>
+        `<span class="katex-inline">${katex.renderToString(a || b, {
+          throwOnError: false,
+          displayMode: false,
+          trust: true,
+        })}</span>`
+    );
+
+    return sanitized;
+  } catch (err) {
+    console.warn("KaTeX render error:", err.message);
+    return sanitized;
+  }
+};
+
+/* ---------- Hook: Post-render math correction ---------- */
+const useRenderKatex = (deps = []) => {
+  useEffect(() => {
+    const katexNodes = document.querySelectorAll(".katex-inline, .katex-block");
+    katexNodes.forEach((node) => {
+      // KaTeX is already rendered in renderSafeKatex, this ensures reflow consistency
+      node.style.display = node.classList.contains("katex-block")
+        ? "block"
+        : "inline";
+    });
+  }, deps);
+};
+
 function LiveExamModal({
   activeExam,
   examMCQs,
@@ -45,6 +100,10 @@ function LiveExamModal({
   handleSubmitExam,
   renderSafeKatex,
 }) {
+  useRenderKatex([examMCQs]); // reflow KaTeX whenever MCQs change
+
+  const base = import.meta.env.VITE_API_BASE_URL;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-lg w-[95%] max-w-3xl p-6 relative max-h-[90vh] overflow-y-auto">
@@ -63,16 +122,30 @@ function LiveExamModal({
             key={mcq._id}
             className="border border-gray-200 rounded-xl p-4 mb-4"
           >
-            <p
-              className="font-medium mb-3"
+            {/* ---------- Question Text ---------- */}
+            <div
+              className="font-medium mb-3 text-[15px] leading-relaxed"
               dangerouslySetInnerHTML={{
-                __html: renderSafeKatex(mcq.question),
+                __html: renderSafeKatex(mcq.question?.text || ""),
               }}
             />
+
+            {/* ---------- Question Image ---------- */}
+            {mcq.question?.image && (
+              <div className="my-3 text-center">
+                <img
+                  src={buildImageURL(base, mcq.question.image)}
+                  alt="question"
+                  className="max-h-48 mx-auto rounded-lg border object-contain"
+                />
+              </div>
+            )}
+
+            {/* ---------- Options ---------- */}
             {mcq.options.map((opt, i) => (
               <label
                 key={i}
-                className={`block px-3 py-2 rounded-lg border mb-2 cursor-pointer ${
+                className={`block px-3 py-2 rounded-lg border mb-2 cursor-pointer transition ${
                   answers[mcq._id] === i
                     ? "border-blue-600 bg-blue-50"
                     : "border-gray-200 hover:bg-gray-50"
@@ -87,9 +160,24 @@ function LiveExamModal({
                   }
                   className="mr-2"
                 />
+
+                {/* Option text */}
                 <span
-                  dangerouslySetInnerHTML={{ __html: renderSafeKatex(opt) }}
+                  dangerouslySetInnerHTML={{
+                    __html: renderSafeKatex(opt.label || ""),
+                  }}
                 />
+
+                {/* Option image */}
+                {opt.image && (
+                  <div className="mt-2 text-center">
+                    <img
+                      src={buildImageURL(base, opt.image)}
+                      alt={`option-${i}`}
+                      className="max-h-32 mx-auto rounded-lg border object-contain"
+                    />
+                  </div>
+                )}
               </label>
             ))}
           </div>
@@ -113,6 +201,7 @@ function LiveExamModal({
     </div>
   );
 }
+
 const MemoizedLiveExamModal = React.memo(LiveExamModal);
 
 /* ---------- Main Page ---------- */
@@ -369,6 +458,42 @@ export default function MyGeneratedPapers() {
     }
   };
 
+  /* ---------- Delete Paper ---------- */
+  const handleDeletePaper = async (paper) => {
+    const confirm = await Swal.fire({
+      title: "🗑️ Delete Paper?",
+      text: `Are you sure you want to delete "${paper.title}"? This cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, Delete",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#dc2626",
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      Swal.fire({
+        title: "Deleting...",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      await axios.delete(`${base}/papers/delete/${user.id}/${paper._id}`);
+
+      Swal.close();
+      Swal.fire("✅ Deleted", "Paper deleted successfully.", "success");
+
+      // Reload papers
+      const res = await axios.get(`${base}/papers/mine`, {
+        params: { studentId: user?._id || user?.id },
+      });
+      if (res.data.success) setPapers(res.data.data || []);
+    } catch (err) {
+      console.error(err);
+      Swal.fire("❌ Error", "Failed to delete paper. Try again.", "error");
+    }
+  };
+
   /* ---------- Format Time ---------- */
   const formatTime = (seconds) => {
     const h = Math.floor(seconds / 3600);
@@ -408,22 +533,33 @@ export default function MyGeneratedPapers() {
               key={p._id}
               className="p-4 bg-white rounded-2xl shadow hover:shadow-lg border border-gray-100 flex flex-col justify-between"
             >
-              <div className="flex items-start gap-3">
-                <div className="bg-blue-50 p-3 rounded-xl shrink-0">
-                  <FileText className="text-blue-500" size={28} />
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="bg-blue-50 p-3 rounded-xl shrink-0">
+                    <FileText className="text-blue-500" size={28} />
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="font-semibold text-base sm:text-lg">
+                      {p.title || "Untitled Paper"} 📘
+                    </div>
+                    <div className="text-gray-600 text-sm mt-1">
+                      🧮 Marks:{" "}
+                      <span className="font-medium">{p.totalMarks}</span>
+                    </div>
+                    <div className="text-gray-500 text-xs mt-1">
+                      🕒 Created: {new Date(p.createdAt).toLocaleString()}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <div className="font-semibold text-base sm:text-lg">
-                    {p.title || "Untitled Paper"} 📘
-                  </div>
-                  <div className="text-gray-600 text-sm mt-1">
-                    🧮 Marks:{" "}
-                    <span className="font-medium">{p.totalMarks}</span>
-                  </div>
-                  <div className="text-gray-500 text-xs mt-1">
-                    🕒 Created: {new Date(p.createdAt).toLocaleString()}
-                  </div>
-                </div>
+
+                {/* ✅ Delete icon */}
+                <button
+                  onClick={() => handleDeletePaper(p)}
+                  className="text-red-500 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition"
+                  title="Delete this paper"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
 
               <div className="mt-4 flex flex-col sm:flex-row gap-2">
