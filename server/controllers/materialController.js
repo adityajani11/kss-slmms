@@ -14,14 +14,35 @@ exports.create = async (req, res) => {
         .json({ success: false, error: "File is required" });
     }
 
-    // Save relative path (relative to /uploads)
-    const relativePath = path.join("uploads/materials", req.file.filename);
+    // Determine uploader info
+    const uploadedBy = req.body.uploadedBy || null;
+    const uploadedByModel = req.body.uploadedByModel || "staffAdmin";
+
+    if (!uploadedBy || !uploadedByModel) {
+      return res.status(401).json({
+        success: false,
+        error: "Uploader information missing or unauthorized.",
+      });
+    }
+
+    // always use forward slashes, even on Windows
+    const relativePath = `uploads/materials/${req.file.filename}`.replace(
+      /\\/g,
+      "/"
+    );
 
     const doc = new Material({
       title,
       standardId,
       subjectId,
       categoryId,
+      uploadedBy,
+      uploadedByModel,
+
+      // Required top-level path (matches schema)
+      path: relativePath,
+
+      // Also store in file.fileId for consistency
       file: {
         storage: "fs",
         fileId: relativePath,
@@ -31,17 +52,25 @@ exports.create = async (req, res) => {
     });
 
     await doc.save();
-    return res.status(201).json({ success: true, data: doc });
+
+    return res.status(201).json({
+      success: true,
+      message: "Material uploaded successfully.",
+      data: doc,
+    });
   } catch (err) {
     console.error("Error creating material:", err);
-    return res.status(400).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: err.message });
   }
 };
 
 // ---------------- LIST ----------------
 exports.list = async (req, res) => {
   try {
-    const query = {};
+    // Exclude student uploads
+    const query = {
+      $or: [{ uploadedByModel: { $ne: "student" } }],
+    };
 
     if (req.query.standardId) query.standardId = req.query.standardId;
     if (req.query.subjectId) query.subjectId = req.query.subjectId;
@@ -51,21 +80,41 @@ exports.list = async (req, res) => {
       .populate("standardId", "standard")
       .populate("subjectId", "name")
       .populate("categoryId", "name")
+      .populate({
+        path: "uploadedBy",
+        model: "staffAdmin", // populate only staffadmin model
+        select: "fullName", // get only fullName field
+      })
       .sort({ createdAt: -1 });
 
-    const formatted = items.map((item) => ({
-      _id: item._id,
-      title: item.title,
-      file: item.file,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-      standard: item.standardId?.standard || "N/A",
-      subject: item.subjectId?.name || "N/A",
-      category: item.categoryId?.name || "N/A",
-    }));
+    const formatted = items.map((item) => {
+      // Normalize slashes in both top-level path and file.fileId
+      const normalizedPath = item.path ? item.path.replace(/\\/g, "/") : null;
+      const normalizedFile =
+        item.file && item.file.fileId
+          ? { ...item.file, fileId: item.file.fileId.replace(/\\/g, "/") }
+          : item.file;
+
+      return {
+        _id: item._id,
+        title: item.title,
+        path: normalizedPath, // Include top-level path (normalized)
+        file: normalizedFile, // Include normalized file info
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        standard: item.standardId?.standard || "N/A",
+        subject: item.subjectId?.name || "N/A",
+        category: item.categoryId?.name || "N/A",
+        uploadedBy:
+          item.uploadedByModel === "staffadmin"
+            ? item.uploadedBy?.fullName || "Admin"
+            : "Admin",
+      };
+    });
 
     return res.json({ success: true, data: formatted });
   } catch (err) {
+    console.error("Error fetching materials:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 };

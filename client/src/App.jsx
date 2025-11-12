@@ -65,6 +65,7 @@ function App() {
         }
       >
         <Route path="dashboard" element={<StaffDashboard />} />
+        <Route path="manage-student" element={<ManageStudent />} />
         <Route path="manage-mcqs" element={<ManageMCQ />} />
         <Route path="manage-materials" element={<ManageMaterial />} />
       </Route>

@@ -32,7 +32,7 @@ const mcqSchema = new Schema(
       },
     ],
     explanation: { type: String, trim: true },
-    createdBy: { type: Schema.Types.ObjectId, ref: "StaffAdmin" },
+    createdBy: { type: Schema.Types.ObjectId, ref: "staffAdmin" },
   },
   { timestamps: true }
 );

@@ -94,7 +94,11 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
         icon: <LayoutDashboard size={18} />,
         to: "/staff/dashboard",
       },
-      { label: "Manage Students", icon: <GraduationCap size={18} /> },
+      {
+        label: "Manage Student",
+        icon: <GraduationCap size={18} />,
+        to: "/staff/manage-student",
+      },
       {
         label: "Manage MCQs",
         icon: <FileQuestion size={18} />,

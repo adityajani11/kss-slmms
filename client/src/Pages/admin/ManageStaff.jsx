@@ -58,15 +58,36 @@ export default function ManageStaff() {
     const infoHtml = `
       <div style="text-align:left;line-height:1.7;">
         <p><b>Full Name:</b> ${staff.fullName || "-"}</p>
+        <p><b>Email:</b> ${staff.email || "-"}</p>
         <p><b>Gender:</b> ${staff.gender || "-"}</p>
         <p><b>Role:</b> ${staff.role || "-"}</p>
         <p><b>Notes:</b> ${staff.notes || "-"}</p>
         <p><b>Disabled:</b> ${staff.isDisabled ? "Yes" : "No"}</p>
         <p><b>Created At:</b> ${
-          staff.createdAt ? new Date(staff.createdAt).toLocaleString() : "-"
+          staff.createdAt
+            ? new Date(staff.createdAt).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true,
+              })
+            : "-"
         }</p>
         <p><b>Updated At:</b> ${
-          staff.updatedAt ? new Date(staff.updatedAt).toLocaleString() : "-"
+          staff.updatedAt
+            ? new Date(staff.updatedAt).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true,
+              })
+            : "-"
         }</p>
       </div>
     `;

@@ -114,15 +114,6 @@ export default function AdminDashboard() {
           <StatsCard key={idx} {...stat} loading={loading} />
         ))}
       </section>
-
-      <section className="bg-white rounded-2xl shadow p-8">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-          Recent Activities
-        </h2>
-        <p className="text-gray-500">
-          Dashboard analytics, charts, and recent logs will appear here.
-        </p>
-      </section>
     </div>
   );
 }

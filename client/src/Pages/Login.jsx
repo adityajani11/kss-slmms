@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Loader from "../components/Loader";
@@ -15,6 +15,14 @@ export default function Login() {
   const [error, setError] = useState("");
   const [showStudentForm, setShowStudentForm] = useState(false);
   const navigate = useNavigate();
+
+  // Auto-clear error after 2 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(""), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -166,33 +174,56 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2.5 rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all"
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2.5 rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all cursor-pointer"
               >
                 {loading ? "Signing in..." : "Sign In"}
               </button>
             </form>
 
-            <div className="text-center mt-4">
-              <button
-                type="button"
-                onClick={() => setShowStudentForm(true)}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
-              >
-                Create New Account
-              </button>
-            </div>
-
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3 }}
-                className="mt-4 text-red-600 text-center text-sm font-medium"
-              >
-                {error}
-              </motion.div>
+            {/* Student Note */}
+            {role === "student" && (
+              <div className="mt-3 text-center text-sm text-gray-700 bg-yellow-50 border border-yellow-200 rounded-lg py-2 px-3">
+                <p>
+                  If any query or trouble in register / login then please
+                  contact us on
+                </p>
+                <p className="mt-1 font-semibold text-indigo-700">
+                  +91 98245 00853
+                </p>
+              </div>
             )}
+
+            {/* Show Create Account button only for Students */}
+            {role === "student" && (
+              <div className="text-center mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowStudentForm(true)}
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
+                >
+                  Create New Account
+                </button>
+              </div>
+            )}
+
+            {/* Error Message */}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  key="error-message"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{
+                    duration: 0.3,
+                    ease: "easeInOut",
+                  }}
+                  className="mt-4 text-red-600 text-center text-sm font-medium"
+                >
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>

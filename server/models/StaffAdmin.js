@@ -3,7 +3,7 @@ const { Schema } = mongoose;
 
 const staffAdminSchema = new Schema(
   {
-    role: { type: String, enum: ["STAFF"], default: "STAFF" },
+    role: { type: String, enum: ["staff"], default: "staff" },
     username: {
       type: String,
       required: true,
@@ -22,4 +22,4 @@ const staffAdminSchema = new Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("StaffAdmin", staffAdminSchema);
+module.exports = mongoose.model("staffAdmin", staffAdminSchema);

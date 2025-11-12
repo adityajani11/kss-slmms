@@ -62,7 +62,7 @@ export default function StaffForm({ onClose, onSuccess, existingData }) {
     setLoading(true);
 
     try {
-      const payload = { ...staffData, role: "STAFF" };
+      const payload = { ...staffData, role: "staff" };
 
       if (existingData && existingData._id) {
         await axios.put(`${base}/staff/${existingData._id}`, payload);
