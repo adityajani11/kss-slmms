@@ -5,7 +5,19 @@ import MCQOptions from "../../components/MCQOptions";
 import MCQList from "../../components/MCQList";
 import Swal from "sweetalert2";
 import "katex/dist/katex.min.css";
-import { Button, Form, Select, Upload, message, Card, Row, Col } from "antd";
+import {
+  Button,
+  Form,
+  Select,
+  Upload,
+  message,
+  Card,
+  Row,
+  Col,
+  Modal,
+  Switch,
+  Input,
+} from "antd";
 import { AppstoreAddOutlined, EyeOutlined } from "@ant-design/icons";
 import "react-quill-new/dist/quill.snow.css";
 import axios from "axios";
@@ -37,6 +49,10 @@ export default function ManageMCQ() {
     subject: null,
   });
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedForPaper, setSelectedForPaper] = useState(new Set());
+  const [generateModalVisible, setGenerateModalVisible] = useState(false);
+  const [generateForm] = Form.useForm();
+
   const base = import.meta.env.VITE_API_BASE_URL || "";
 
   useEffect(() => {
@@ -97,6 +113,15 @@ export default function ManageMCQ() {
     }
 
     setFilteredMCQs(filtered);
+    // Clear selection if an MCQ no longer in filtered list
+    setSelectedForPaper((prev) => {
+      const next = new Set(
+        Array.from(prev).filter((id) =>
+          filtered.some((f) => String(f._id) === String(id))
+        )
+      );
+      return next;
+    });
   }, [selectedFilters, mcqs]);
 
   const uploadProps = {
@@ -190,6 +215,11 @@ export default function ManageMCQ() {
 
   const handleDeleted = (deletedId) => {
     setMcqs((prev) => prev.filter((m) => m._id !== deletedId));
+    setSelectedForPaper((prev) => {
+      const next = new Set(prev);
+      next.delete(deletedId);
+      return next;
+    });
   };
 
   const handleSubmit = async (values) => {
@@ -251,6 +281,159 @@ export default function ManageMCQ() {
       message.error(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // === Selection helpers ===
+  const toggleSelectForPaper = (mcqId) => {
+    setSelectedForPaper((prev) => {
+      const next = new Set(prev);
+      if (next.has(mcqId)) next.delete(mcqId);
+      else {
+        if (next.size >= 120) {
+          message.warning("You can select up to 120 MCQs only.");
+          return prev;
+        }
+        next.add(mcqId);
+      }
+      return next;
+    });
+  };
+
+  const clearSelectedForPaper = () => setSelectedForPaper(new Set());
+
+  const selectAllFiltered = () => {
+    // only allow when both standard & subject are selected
+    if (!selectedFilters.standard || !selectedFilters.subject) {
+      message.info("Please select Standard and Subject to select MCQs.");
+      return;
+    }
+    const ids = filteredMCQs.map((m) => m._id).slice(0, 120);
+    setSelectedForPaper(new Set(ids));
+    if (filteredMCQs.length > 120) {
+      message.info("Only first 120 filtered MCQs were selected.");
+    }
+  };
+
+  // Generate paper submission (modal values include: pdfHeading, includeBoth)
+  const handleGeneratePaperSubmit = async (values) => {
+    // checks (same as before)
+    if (!selectedFilters.standard || !selectedFilters.subject) {
+      message.error(
+        "Please select Standard and Subject before generating paper."
+      );
+      return;
+    }
+
+    const mcqIds = Array.from(selectedForPaper);
+    if (mcqIds.length === 0) {
+      message.error("Select at least one MCQ to generate paper.");
+      return;
+    }
+    if (mcqIds.length > 120) {
+      message.error("You can generate a paper with at most 120 MCQs.");
+      return;
+    }
+
+    // Ask for title if not provided earlier (you used SweetAlert)
+    const { value: title } = await Swal.fire({
+      title: "Enter PDF Title",
+      input: "text",
+      inputLabel: "PDF Title (required)",
+      inputPlaceholder: "e.g. Midterm Practice Test",
+      inputValidator: (val) => {
+        if (!val || !val.trim()) return "Title is required";
+        return null;
+      },
+      showCancelButton: true,
+      confirmButtonText: "Generate",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#2563eb",
+    });
+
+    if (!title) return;
+
+    // get logged in user id
+    const loggedInUserString = localStorage.getItem("user");
+    const loggedInUser = loggedInUserString
+      ? JSON.parse(loggedInUserString)
+      : null;
+    const userId = loggedInUser?.id || loggedInUser?._id;
+
+    const payload = {
+      mcqs: mcqIds,
+      pdfHeading: values.pdfHeading || "",
+      includeAnswers: !!values.includeBoth,
+      includeExplanations: !!values.includeBoth,
+      title: title.trim(),
+      standardId: selectedFilters.standard,
+      subjectId: selectedFilters.subject,
+      userId,
+    };
+
+    setLoadingExport(true);
+
+    try {
+      // Confirm final generation
+      const confirmation = await Swal.fire({
+        title: "Generate & Save Paper?",
+        html: `<div style="text-align:left">You are about to generate a paper with <strong>${
+          mcqIds.length
+        }</strong> MCQs.<br/><br/>Title: <strong>${title.trim()}</strong></div>`,
+        showCancelButton: true,
+        confirmButtonText: "Yes, Generate",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#2563eb",
+      });
+      if (!confirmation.isConfirmed) {
+        setLoadingExport(false);
+        return;
+      }
+
+      // call API - expecting PDF blob and DB entry created on server
+      const response = await axios.post(
+        `${base}/papers/generate-admin`,
+        payload,
+        {
+          responseType: "blob",
+        }
+      );
+
+      // download blob
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const safeName = title.trim().replace(/\s+/g, "_").slice(0, 120);
+      a.href = url;
+      a.download = `${safeName || "AdminPaper"}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      // success feedback
+      Swal.fire({
+        icon: "success",
+        title: "Paper generated & saved",
+        text: "Paper has been saved to the server and downloaded.",
+        timer: 1800,
+        showConfirmButton: false,
+      });
+
+      // Clear selections + close modal
+      clearSelectedForPaper();
+      setGenerateModalVisible(false);
+      generateForm.resetFields();
+
+      // Optionally refresh admin papers page (if open)
+      // (we don't navigate automatically; keep it mild)
+    } catch (err) {
+      console.error("Generate Paper error:", err);
+      const msg =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Server error while generating paper";
+      Swal.fire("❌ Error", msg, "error");
+    } finally {
+      setLoadingExport(false);
     }
   };
 
@@ -317,14 +500,36 @@ export default function ManageMCQ() {
 
   // === View MCQs ===
   if (view === "view") {
+    const bothFiltersSelected =
+      !!selectedFilters.standard && !!selectedFilters.subject;
+
     return (
       <div className="bg-gray-100">
-        <div className="max-w-6xl mx-auto flex justify-between items-center mb-6">
+        {/* Header */}
+        <div className="mx-auto flex flex-col gap-4 md:flex-row md:justify-between md:items-center mb-6">
           <h2 className="text-2xl font-semibold text-gray-800">All MCQs</h2>
-          <div>
-            <Button className="me-3" onClick={() => setView("select")}>
-              Back
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-sm text-gray-600">
+              Selected: {selectedForPaper.size}
+            </div>
+
+            <Button
+              onClick={selectAllFiltered}
+              disabled={!bothFiltersSelected || filteredMCQs.length === 0}
+            >
+              Select MCQs (up to 120)
             </Button>
+
+            <Button onClick={() => setView("select")}>Back</Button>
+
+            <Button
+              onClick={() => setGenerateModalVisible(true)}
+              disabled={!bothFiltersSelected || selectedForPaper.size === 0}
+            >
+              Generate Paper
+            </Button>
+
             <Button
               type="primary"
               onClick={handleDownloadPDF}
@@ -335,21 +540,79 @@ export default function ManageMCQ() {
           </div>
         </div>
 
-        <MCQList
-          mcqs={filteredMCQs}
-          loading={loadingMCQs}
-          onEdit={handleEdit}
-          onDeleted={handleDeleted}
-          preview={preview}
-          setPreview={setPreview}
-          standards={standards}
-          categories={categories}
-          subjects={subjects}
-          selectedFilters={selectedFilters}
-          setSelectedFilters={setSelectedFilters}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-        />
+        {/* MCQ List */}
+        <div className="mx-auto">
+          <MCQList
+            mcqs={filteredMCQs}
+            loading={loadingMCQs}
+            onEdit={handleEdit}
+            onDeleted={handleDeleted}
+            preview={preview}
+            setPreview={setPreview}
+            standards={standards}
+            categories={categories}
+            subjects={subjects}
+            selectedFilters={selectedFilters}
+            setSelectedFilters={setSelectedFilters}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            selectedForPaper={selectedForPaper}
+            toggleSelectForPaper={toggleSelectForPaper}
+            allowSelection={bothFiltersSelected}
+            selectedStandard={selectedFilters.standard}
+            selectedSubject={selectedFilters.subject}
+          />
+        </div>
+
+        {/* Modal */}
+        <Modal
+          title="Generate Paper (Admin)"
+          open={generateModalVisible}
+          onCancel={() => {
+            setGenerateModalVisible(false);
+            generateForm.resetFields();
+          }}
+          footer={null}
+          centered
+        >
+          <Form
+            form={generateForm}
+            layout="vertical"
+            onFinish={handleGeneratePaperSubmit}
+            initialValues={{ includeBoth: false }}
+          >
+            <Form.Item name="pdfHeading" label="PDF Heading (optional)">
+              <Input placeholder="Heading inside the PDF (optional)" />
+            </Form.Item>
+
+            <Form.Item
+              name="includeBoth"
+              label="Include Answers & Explanations"
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+
+            <div className="text-right mt-4">
+              <Button
+                onClick={() => {
+                  setGenerateModalVisible(false);
+                  generateForm.resetFields();
+                }}
+                className="me-2"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                onClick={() => generateForm.submit()}
+                loading={loadingExport}
+              >
+                Proceed
+              </Button>
+            </div>
+          </Form>
+        </Modal>
       </div>
     );
   }

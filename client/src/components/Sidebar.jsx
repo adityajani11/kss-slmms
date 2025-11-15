@@ -83,6 +83,11 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
         to: "/admin/manage-subjects",
       },
       {
+        label: "Generated Papers",
+        icon: <Layers size={18} />,
+        to: "/admin/my-generated-papers",
+      },
+      {
         label: "Manage Materials",
         icon: <FolderOpen size={18} />,
         to: "/admin/manage-materials",
@@ -103,6 +108,11 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
         label: "Manage MCQs",
         icon: <FileQuestion size={18} />,
         to: "/staff/manage-mcqs",
+      },
+      {
+        label: "Generated Papers",
+        icon: <Layers size={18} />,
+        to: "/staff/my-generated-papers",
       },
       {
         label: "Manage Materials",
@@ -147,7 +157,7 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
   const items = menuItems[panelType] || [];
 
   return (
-    <aside className="w-64 bg-white shadow-xl rounded-r-2xl p-5 flex flex-col min-h-screen sticky top-0">
+    <aside className="w-64 bg-white shadow-xl rounded-r-2xl p-5 flex flex-col h-screen overflow-y-auto sticky top-0">
       {/* Mobile close button */}
       <button
         onClick={onClose}

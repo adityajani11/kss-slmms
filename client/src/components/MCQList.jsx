@@ -18,6 +18,11 @@ export default function MCQList({
   setSelectedFilters,
   searchQuery = "",
   setSearchQuery = () => {},
+  selectedForPaper = new Set(),
+  toggleSelectForPaper = () => {},
+  allowSelection = false, // when both standard & subject selected
+  selectedStandard = null,
+  selectedSubject = null,
 }) {
   // Filter logic (runs only when needed)
   const filteredMCQs = useMemo(() => {
@@ -133,6 +138,11 @@ export default function MCQList({
               onEdit={() => onEdit(mcq)}
               onDeleted={onDeleted}
               setPreview={setPreview}
+              isSelectedForPaper={selectedForPaper.has(mcq._id)}
+              toggleSelectForPaper={() => toggleSelectForPaper(mcq._id)}
+              allowSelection={allowSelection}
+              selectedStandard={selectedStandard}
+              selectedSubject={selectedSubject}
             />
           ))}
 

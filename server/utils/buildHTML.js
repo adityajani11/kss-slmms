@@ -2,9 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const katex = require("katex");
 
-function buildHTML(mcqs, pdfHeading = "", options = {}) {
-  const { includeAnswers = true, includeExplanations = true } = options;
-
+function buildHTML(mcqs, pdfHeading = "", includeAnswers, includeExplanations) {
   const katexCSS = fs.readFileSync(
     require.resolve("katex/dist/katex.min.css"),
     "utf8"
@@ -181,14 +179,14 @@ function buildHTML(mcqs, pdfHeading = "", options = {}) {
 
     // Answer & Explanation (conditionally rendered)
     let answerBlock = "";
-    if (includeAnswers) {
+    if (includeAnswers === true) {
       const ansIdx = mcq.options.findIndex((o) => o.isCorrect);
       const ansLetter = ansIdx >= 0 ? String.fromCharCode(65 + ansIdx) : "?";
       answerBlock += `<div class="ans"><span class="latin">Ans: ${ansLetter}</span></div>`;
     }
 
     let explanationBlock = "";
-    if (includeAnswers && includeExplanations && mcq.explanation) {
+    if (includeExplanations === true && mcq.explanation) {
       const exp = wrapGujarati(renderKaTeXInline(mcq.explanation));
       explanationBlock = `<div class="exp"><b class="guj">સમજૂતી:</b> ${exp}</div>`;
     }

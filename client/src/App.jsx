@@ -21,6 +21,7 @@ import StudentProfileManage from "./pages/student/StudentProfileManage";
 import MyMaterials from "./pages/student/MyMaterials";
 import GiveMCQTest from "./pages/student/GiveMCQTest";
 import MyGeneratedPapers from "./pages/student/MyGeneratedPapers";
+import MyGeneratedPapersStaffAdmin from "./pages/admin/MyGeneratedPapersStaffAdmin";
 import TestHistory from "./pages/student/TestHistory";
 import SelectMCQs from "./components/SelectMCQs";
 import ViewAllMCQs from "./pages/student/ViewAllMCQs";
@@ -52,6 +53,10 @@ function App() {
         <Route path="manage-categories" element={<ManageCategory />} />
         <Route path="manage-subjects" element={<ManageSubject />} />
         <Route path="manage-mcqs" element={<ManageMCQ />} />
+        <Route
+          path="my-generated-papers"
+          element={<MyGeneratedPapersStaffAdmin />}
+        />
         <Route path="manage-materials" element={<ManageMaterial />} />
       </Route>
 
@@ -67,6 +72,10 @@ function App() {
         <Route path="dashboard" element={<StaffDashboard />} />
         <Route path="manage-student" element={<ManageStudent />} />
         <Route path="manage-mcqs" element={<ManageMCQ />} />
+        <Route
+          path="my-generated-papers"
+          element={<MyGeneratedPapersStaffAdmin />}
+        />
         <Route path="manage-materials" element={<ManageMaterial />} />
       </Route>
 

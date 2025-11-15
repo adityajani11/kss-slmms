@@ -69,7 +69,8 @@ exports.list = async (req, res) => {
   try {
     // Exclude student uploads
     const query = {
-      $or: [{ uploadedByModel: { $ne: "student" } }],
+      uploadedByModel: { $ne: "student" }, // exclude student uploads
+      path: { $not: /^uploads\/admin_papers/ }, // exclude admin_papers folder
     };
 
     if (req.query.standardId) query.standardId = req.query.standardId;
@@ -195,9 +196,18 @@ exports.getByStandard = async (req, res) => {
       .find({
         standardId: new mongoose.Types.ObjectId(standardId),
         deleted: { $ne: true },
-        $or: [
-          { uploadedByModel: { $exists: false } },
-          { uploadedByModel: { $not: /^student$/i } },
+
+        // Exclusions
+        $and: [
+          {
+            $or: [
+              { uploadedByModel: { $exists: false } },
+              { uploadedByModel: { $not: /^student$/i } },
+            ],
+          },
+          {
+            path: { $not: /^uploads\/admin_papers/ },
+          },
         ],
       })
       .sort({ createdAt: -1 })

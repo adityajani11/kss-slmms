@@ -7,7 +7,7 @@ const paperSchema = new Schema(
     title: { type: String, required: true, trim: true },
     type: {
       type: String,
-      enum: ["STAFF_DRAFT", "STUDENT_DRAFT", "TEMPLATE", "GENERATED"],
+      enum: ["STAFF_DRAFT", "STUDENT_DRAFT", "GENERATED"],
       required: true,
     },
     createdBy: {
@@ -17,7 +17,7 @@ const paperSchema = new Schema(
     },
     createdByModel: {
       type: String,
-      enum: ["Student", "StaffAdmin"],
+      enum: ["Student", "staffAdmin"],
       required: true,
     },
     standardId: {

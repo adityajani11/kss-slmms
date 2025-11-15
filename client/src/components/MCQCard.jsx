@@ -12,7 +12,17 @@ import Swal from "sweetalert2";
 import renderMathInElement from "katex/contrib/auto-render/auto-render";
 import "katex/dist/katex.min.css";
 
-export default function MCQCard({ mcq, onEdit, onDeleted, setPreview }) {
+export default function MCQCard({
+  mcq,
+  onEdit,
+  onDeleted,
+  setPreview,
+  isSelectedForPaper = false,
+  toggleSelectForPaper = () => {},
+  allowSelection = false,
+  selectedStandard = null,
+  selectedSubject = null,
+}) {
   const [isFullModalOpen, setIsFullModalOpen] = useState(false);
 
   const baseURL =
@@ -93,6 +103,14 @@ export default function MCQCard({ mcq, onEdit, onDeleted, setPreview }) {
       reverseButtons: true,
     }).then((result) => result.isConfirmed && handleDelete());
   };
+
+  // Determine if checkbox should be enabled for this MCQ
+  const checkboxEnabled =
+    allowSelection &&
+    selectedStandard &&
+    selectedSubject &&
+    mcq?.standardId?._id === selectedStandard &&
+    mcq?.subjectId?._id === selectedSubject;
 
   const FullMCQContent = (
     <>
@@ -189,10 +207,26 @@ export default function MCQCard({ mcq, onEdit, onDeleted, setPreview }) {
         className="block md:hidden shadow-sm rounded-lg mb-4"
         onClick={() => setIsFullModalOpen(true)}
       >
-        <div
-          className="line-clamp-2 text-gray-900 font-medium"
-          dangerouslySetInnerHTML={{ __html: questionHTML }}
-        />
+        <div className="flex items-start justify-between gap-2">
+          <div
+            className="line-clamp-2 text-gray-900 font-medium flex-1"
+            dangerouslySetInnerHTML={{ __html: questionHTML }}
+          />
+          {allowSelection && (
+            <div onClick={(e) => e.stopPropagation()} className="ml-2">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isSelectedForPaper}
+                  onChange={() => {
+                    if (checkboxEnabled) toggleSelectForPaper(mcq._id);
+                  }}
+                  disabled={!checkboxEnabled}
+                />
+              </label>
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* DESKTOP FULL CARD */}
@@ -212,7 +246,23 @@ export default function MCQCard({ mcq, onEdit, onDeleted, setPreview }) {
               {FullMCQContent}
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 items-end">
+              {allowSelection && (
+                <div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={isSelectedForPaper}
+                      onChange={() => {
+                        if (checkboxEnabled) toggleSelectForPaper(mcq._id);
+                      }}
+                      disabled={!checkboxEnabled}
+                    />
+                    <span className="text-sm ml-1">Select</span>
+                  </label>
+                </div>
+              )}
+
               {questionImage && (
                 <Tooltip title="View Image">
                   <Button

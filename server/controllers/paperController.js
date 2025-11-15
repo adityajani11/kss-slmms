@@ -55,8 +55,16 @@ exports.generatePaper = async (req, res) => {
       });
     }
 
+    const includeAns = includeAnswers === true;
+    const includeExp = includeAns; // auto-enable explanation when answers enabled
+
     // --- Build HTML ---
-    const html = buildHTML(mcqDocs, pdfHeading || "Student Draft Paper");
+    const html = buildHTML(
+      mcqDocs,
+      pdfHeading || "Student Draft Paper",
+      includeAns,
+      includeExp
+    );
 
     // --- Generate PDF using Puppeteer ---
     const browser = await puppeteer.launch({
@@ -214,11 +222,16 @@ exports.downloadPaper = async (req, res) => {
 
     const mcqs = paperDoc.items.map((i) => i.mcqId).filter(Boolean);
 
+    // If answers included, also include explanations
+    const includeExp = includeAnswers;
+
     // 🧩 Build dynamic HTML with KaTeX + Gujarati + filters
-    const html = buildHTML(mcqs, paper.title || "Student Paper", {
+    const html = buildHTML(
+      mcqs,
+      paper.title || "Student Paper",
       includeAnswers,
-      includeExplanations: includeAnswers,
-    });
+      includeExp
+    );
 
     // 🧾 Generate PDF via Puppeteer
     const browser = await puppeteer.launch({
@@ -255,6 +268,191 @@ exports.downloadPaper = async (req, res) => {
     res.status(500).json({
       success: false,
       error: err.message || "Failed to prepare or download paper.",
+    });
+  }
+};
+
+// ADMIN / STAFF Paper generation API
+exports.generateAdminPaper = async (req, res) => {
+  try {
+    const {
+      mcqs,
+      pdfHeading,
+      includeAnswers,
+      includeExplanations,
+      title,
+      standardId,
+      subjectId,
+      userId, // must come from frontend
+    } = req.body;
+
+    // -------- VALIDATION --------
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: "Unauthenticated request (userId missing)",
+      });
+    }
+
+    if (!standardId) {
+      return res.status(400).json({
+        success: false,
+        error: "standardId is required",
+      });
+    }
+
+    if (!mcqs || !Array.isArray(mcqs) || mcqs.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Please provide at least one MCQ",
+      });
+    }
+
+    if (mcqs.length > 120) {
+      return res.status(400).json({
+        success: false,
+        error: "You can generate a maximum of 120 MCQs",
+      });
+    }
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: "Title is required",
+      });
+    }
+
+    // -------- FETCH MCQS --------
+    const mcqDocs = await MCQModel.find({ _id: { $in: mcqs } })
+      .populate("standardId subjectId categoryId")
+      .lean();
+
+    if (!mcqDocs.length) {
+      return res.status(404).json({
+        success: false,
+        error: "No valid MCQs found",
+      });
+    }
+
+    // -------- VALIDATE STANDARD / SUBJECT MATCH --------
+    for (const mcq of mcqDocs) {
+      if (String(mcq.standardId?._id) !== String(standardId)) {
+        return res.status(400).json({
+          success: false,
+          error: `Some MCQs do not belong to selected standard`,
+        });
+      }
+      if (subjectId && String(mcq.subjectId?._id) !== String(subjectId)) {
+        return res.status(400).json({
+          success: false,
+          error: `Some MCQs do not belong to selected subject`,
+        });
+      }
+    }
+
+    // -------- SUBJECT LIST FROM MCQS --------
+    const subjectIds = [
+      ...new Set(
+        mcqDocs.flatMap((m) => (m.subjectId?._id ? [m.subjectId._id] : []))
+      ),
+    ];
+
+    // Use subjectId if no subjects found in MCQs (fallback)
+    const primarySubject = subjectIds[0] || subjectId || null;
+
+    // -------- BUILD HTML FOR PDF --------
+    const html = buildHTML(
+      mcqDocs,
+      pdfHeading || "",
+      includeAnswers,
+      includeExplanations
+    );
+
+    // -------- GENERATE PDF --------
+    const browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle2" });
+    await page.evaluateHandle("document.fonts.ready");
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: {
+        top: "40px",
+        bottom: "40px",
+        left: "40px",
+        right: "40px",
+      },
+    });
+
+    await browser.close();
+
+    // -------- SAVE PDF FILE --------
+    const adminDir = path.join(__dirname, "../uploads/admin_papers");
+    if (!fs.existsSync(adminDir)) {
+      fs.mkdirSync(adminDir, { recursive: true });
+    }
+
+    const fileName = `AdminPaper_${Date.now()}.pdf`;
+    const filePath = path.join(adminDir, fileName);
+    fs.writeFileSync(filePath, pdfBuffer);
+
+    const relativePath = `uploads/admin_papers/${fileName}`;
+
+    // -------- CREATE MATERIAL ENTRY --------
+    const materialDoc = await Material.create({
+      title: title.trim(),
+      type: "PDF",
+      path: relativePath,
+      uploadedBy: userId,
+      uploadedByModel: "staffadmin",
+      standardId,
+      subjectId: primarySubject,
+      categoryId: mcqDocs[0]?.categoryId?._id || undefined,
+      file: { fileId: null },
+    });
+
+    // -------- PAPER ITEMS --------
+    const items = mcqDocs.map((m, i) => ({
+      mcqId: m._id,
+      marks: 1,
+      order: i + 1,
+    }));
+
+    // -------- CREATE PAPER ENTRY --------
+    const paper = await Paper.create({
+      title: title.trim(),
+      type: "GENERATED",
+      createdBy: userId,
+      createdByModel: "staffAdmin",
+      standardId,
+      subjectIds,
+      includeAnswers: !!includeAnswers,
+      includeExplanations: !!includeExplanations,
+      totalMarks: items.length,
+      items,
+      generatedPdf: {
+        fileId: materialDoc._id,
+        at: new Date(),
+      },
+    });
+
+    // -------- RETURN PDF TO FRONTEND --------
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${fileName}"`,
+    });
+
+    return res.send(pdfBuffer);
+  } catch (err) {
+    console.error("Admin Paper Generation Error:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
     });
   }
 };
@@ -542,6 +740,149 @@ exports.getGeneratedPapers = async (req, res) => {
   } catch (err) {
     console.error("getGeneratedPapers error:", err);
     return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+// GET /papers/fetch/type=GENERATED - FOR STAFF / ADMIN
+exports.getGeneratedPapers = async (req, res) => {
+  try {
+    const papers = await Paper.find(
+      { type: "GENERATED", disabled: false },
+      {
+        __v: 0,
+        updatedAt: 0,
+        createdAt: 0,
+      }
+    )
+      .populate({
+        path: "createdBy",
+        select: "_id role username fullName", // only required fields
+      })
+      .populate({
+        path: "subjectIds",
+        select: "_id name", // only two fields
+      })
+      .populate({
+        path: "generatedPdf.fileId",
+        select: "_id title path", // include what is needed (reduce size)
+      })
+      .lean();
+
+    return res.json({
+      success: true,
+      data: papers,
+    });
+  } catch (err) {
+    console.error("Fetch Generated Papers Error:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+
+// GET /papers/:paperId/download-generated?answers=true/false - FOR ADMIN / STAFF
+exports.downloadGeneratedPaper = async (req, res) => {
+  try {
+    const { paperId } = req.params;
+    const includeAnswers = req.query.answers === "true";
+
+    const paper = await Paper.findOne({
+      _id: paperId,
+      type: "GENERATED",
+    })
+      .populate({
+        path: "items.mcqId",
+        populate: { path: "subjectId categoryId" },
+      })
+      .lean();
+
+    if (!paper) {
+      return res.status(404).json({
+        success: false,
+        error: "Paper not found.",
+      });
+    }
+
+    // extract MCQs
+    const mcqs = paper.items.map((i) => i.mcqId).filter(Boolean);
+
+    // explanations included when answers=true
+    const includeExp = includeAnswers;
+
+    // Build HTML
+    const html = buildHTML(mcqs, paper.title, includeAnswers, includeExp);
+
+    // Generate PDF
+    const browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle2" });
+    await page.evaluateHandle("document.fonts.ready");
+    await new Promise((r) => setTimeout(r, 300));
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "40px", bottom: "40px", left: "40px", right: "40px" },
+    });
+
+    await browser.close();
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${(
+        paper.title || "GeneratedPaper"
+      ).replace(/\s+/g, "_")}.pdf"`,
+    });
+
+    return res.send(pdfBuffer);
+  } catch (err) {
+    console.error("Download Generated Paper Error:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to download paper.",
+    });
+  }
+};
+
+// Hard delete a generated paper - STAFF / ADMIN
+exports.deleteGeneratedPaper = async (req, res) => {
+  try {
+    const { paperId } = req.params;
+
+    const paper = await Paper.findOne({ _id: paperId, type: "GENERATED" });
+    if (!paper) {
+      return res.status(404).json({
+        success: false,
+        error: "Paper not found",
+      });
+    }
+
+    // Delete linked material (if exists)
+    if (paper.generatedPdf?.fileId) {
+      await Material.deleteOne({ _id: paper.generatedPdf.fileId });
+    }
+
+    // OPTIONAL: delete physical PDF file from server
+    // If you want this, provide file path column in material
+
+    // delete paper
+    await Paper.deleteOne({ _id: paperId });
+
+    return res.json({
+      success: true,
+      message: "Generated paper deleted successfully.",
+    });
+  } catch (err) {
+    console.error("Delete Generated Paper Error:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to delete paper.",
+    });
   }
 };
 
