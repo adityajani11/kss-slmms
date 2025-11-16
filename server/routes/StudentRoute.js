@@ -6,6 +6,10 @@ const ctrl = require("../controllers/studentsController");
 router.post("/", ctrl.create);
 router.get("/", ctrl.list);
 router.post("/login", ctrl.login);
+router.post(
+  "/verify-student-delete-password",
+  ctrl.verifyStudentDeletePassword
+);
 router.get("/:id", ctrl.getById);
 router.put("/:id", ctrl.update);
 router.delete("/:id", ctrl.softDelete);

@@ -10,12 +10,13 @@ import {
   Layers,
   FolderOpen,
   X,
+  Settings,
 } from "lucide-react";
 
 export default function Sidebar({ panelType, onAddStaff, onClose }) {
   const navigate = useNavigate();
   const commonClasses =
-    "flex items-center gap-3 px-5 py-3 rounded-lg cursor-pointer transition hover:bg-indigo-100 text-gray-700 hover:text-indigo-700";
+    "flex items-center gap-2 px-5 py-2.5 rounded-lg cursor-pointer transition hover:bg-indigo-100 text-gray-700 hover:text-indigo-700";
   const activeClasses = "bg-indigo-100 text-indigo-700 font-semibold";
 
   // Logout handler
@@ -91,6 +92,11 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
         label: "Manage Materials",
         icon: <FolderOpen size={18} />,
         to: "/admin/manage-materials",
+      },
+      {
+        label: "Settings",
+        icon: <Settings size={18} />,
+        to: "/admin/settings",
       },
     ],
     staff: [

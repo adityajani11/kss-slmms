@@ -229,7 +229,9 @@ export default function ManageStaff() {
                   {filteredList.map((staff, idx) => (
                     <tr
                       key={staff._id || idx}
-                      className="border-t hover:bg-indigo-50/40 transition-colors"
+                      className={`border-t transition-colors ${
+                        staff.isDisabled ? "bg-red-50" : "hover:bg-indigo-50/40"
+                      }`}
                     >
                       <td className="px-6 py-4">{idx + 1}</td>
                       <td className="px-6 py-4 font-medium text-gray-900">
@@ -287,7 +289,11 @@ export default function ManageStaff() {
             {filteredList.map((staff, idx) => (
               <div
                 key={staff._id || idx}
-                className="bg-white rounded-xl shadow-md border border-gray-200 p-4 hover:shadow-lg transition-all"
+                className={`rounded-xl shadow-md border p-4 transition-all ${
+                  staff.isDisabled
+                    ? "bg-red-50 border-red-200"
+                    : "bg-white border-gray-200"
+                }`}
               >
                 <div className="flex justify-between items-start">
                   <div>

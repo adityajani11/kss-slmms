@@ -446,14 +446,14 @@ export default function ManageMCQ() {
         </h2>
 
         <Row gutter={[24, 24]}>
-          <Col xs={24} sm={12} md={8} lg={6}>
+          <Col xs={24} sm={12} md={8} lg={8}>
             <Card
               hoverable
               style={{
                 width: "100%",
                 minHeight: 150,
                 borderRadius: 16,
-                padding: 20,
+                padding: 10,
               }}
               className="shadow-md hover:shadow-xl transition-all duration-300"
               onClick={() => setView("manage")}
@@ -461,23 +461,25 @@ export default function ManageMCQ() {
               <div className="flex flex-col items-start">
                 <AppstoreAddOutlined className="text-4xl text-blue-600 mb-3" />
                 <h3 className="text-xl font-semibold text-gray-800 mb-1">
+                  Create &
+                  <br />
                   Manage MCQs
                 </h3>
                 <p className="text-gray-500 text-sm">
-                  Create and manage questions
+                  Create and manage questions & answers
                 </p>
               </div>
             </Card>
           </Col>
 
-          <Col xs={24} sm={12} md={8} lg={6}>
+          <Col xs={24} sm={12} md={8} lg={8}>
             <Card
               hoverable
               style={{
                 width: "100%",
                 minHeight: 150,
                 borderRadius: 16,
-                padding: 20,
+                padding: 10,
               }}
               className="shadow-md hover:shadow-xl transition-all duration-300"
               onClick={() => setView("view")}
@@ -485,7 +487,9 @@ export default function ManageMCQ() {
               <div className="flex flex-col items-start">
                 <EyeOutlined className="text-4xl text-green-600 mb-3" />
                 <h3 className="text-xl font-semibold text-gray-800 mb-1">
-                  View MCQs
+                  View MCQs &
+                  <br />
+                  Generate Paper
                 </h3>
                 <p className="text-gray-500 text-sm">
                   Browse and review all MCQs

@@ -92,26 +92,34 @@ exports.updateContact = async (req, res) => {
 // Update Password
 exports.updatePassword = async (req, res) => {
   try {
-    const { oldPassword, newPassword } = req.body;
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({ message: "Both passwords are required" });
+    const { type, passwordHash } = req.body;
+
+    if (!type || !passwordHash)
+      return res.status(400).json({ success: false, error: "Missing fields" });
+
+    const admin = await Admin.findOne(); // only one admin
+
+    if (!admin)
+      return res.status(404).json({ success: false, error: "Admin not found" });
+
+    if (type === "ADMIN_LOGIN") {
+      admin.password = passwordHash;
+    } else if (type === "STUDENT_DELETE") {
+      admin.studentDeletePassword = passwordHash;
+    } else {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid password type" });
     }
 
-    const admin = await Admin.findOne();
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
-    }
-
-    const isMatch = await bcrypt.compare(oldPassword, admin.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Old password is incorrect" });
-    }
-
-    admin.password = await bcrypt.hash(newPassword, 10);
     await admin.save();
 
-    res.status(200).json({ message: "Password updated successfully" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };

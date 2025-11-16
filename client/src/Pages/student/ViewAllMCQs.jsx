@@ -66,7 +66,7 @@ export default function ViewAllMCQs() {
     if (!user?.standardId) {
       Swal.fire(
         "⚠️ Missing Data",
-        "Standard ID not found for this user.",
+        "Standard ID not found for this user. Please log in again.",
         "warning"
       );
       setLoading(false);
@@ -89,7 +89,6 @@ export default function ViewAllMCQs() {
       setCategories(catRes?.data?.data || []);
     } catch (error) {
       console.error(error);
-      Swal.fire("❌ Error", "Failed to fetch MCQs or filters.", "error");
     } finally {
       setLoading(false);
     }
@@ -362,7 +361,7 @@ export default function ViewAllMCQs() {
         </div>
       ) : filteredMCQs.length === 0 ? (
         <div className="text-center text-gray-500 text-lg bg-white p-10 rounded-2xl shadow-sm">
-          😕 No MCQs found with selected filters.
+          😕 No MCQs found.
         </div>
       ) : (
         <>

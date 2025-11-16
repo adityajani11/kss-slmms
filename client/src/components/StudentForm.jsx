@@ -8,6 +8,8 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
   const [loading, setLoading] = useState(false);
   const base = import.meta.env.VITE_API_BASE_URL || "";
 
+  const [standards, setStandards] = useState([]);
+
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -25,17 +27,23 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
     stream: "",
   });
 
-  const [standards, setStandards] = useState([]);
+  const [errors, setErrors] = useState({});
 
+  // ------------------------------
+  // Fetch Standards + Setup Editing
+  // ------------------------------
   useEffect(() => {
     const fetchStandards = async () => {
       try {
         const res = await axios.get(`${base}/standards`);
-        if (Array.isArray(res.data?.data?.items))
-          setStandards(res.data.data.items);
-        else if (Array.isArray(res.data?.data)) setStandards(res.data.data);
-        else if (Array.isArray(res.data)) setStandards(res.data);
-        else setStandards([]);
+        const list = Array.isArray(res.data?.data?.items)
+          ? res.data.data.items
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+          ? res.data
+          : [];
+        setStandards(list);
       } catch (error) {
         console.error("Failed to fetch standards", error);
         setStandards([]);
@@ -45,43 +53,86 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
     fetchStandards();
 
     if (editingStudent) {
+      const s = editingStudent;
       setFormData({
-        username: editingStudent.username || "",
-        fullName: editingStudent.fullName || "",
-        city: editingStudent.city || "",
-        district: editingStudent.district || "",
-        schoolName: editingStudent.schoolName || "",
-        standardId:
-          editingStudent.standardId?._id || editingStudent.standardId || "",
-        contactNumber: editingStudent.contactNumber || "",
-        whatsappNumber: editingStudent.whatsappNumber || "",
-        gender: editingStudent.gender || "",
-        cast: editingStudent.cast || "",
-        category: editingStudent.category || "",
-        stream: editingStudent.stream || "",
+        username: s.username || "",
+        fullName: s.fullName || "",
+        city: s.city || "",
+        district: s.district || "",
+        schoolName: s.schoolName || "",
+        standardId: s.standardId?._id || s.standardId || "",
+        contactNumber: s.contactNumber || "",
+        whatsappNumber: s.whatsappNumber || "",
+        gender: s.gender || "",
+        cast: s.cast || "",
+        category: s.category || "",
+        stream: s.stream || "",
+
+        // admins can leave password blank to keep unchanged
         password: "",
         confirmPassword: "",
       });
     }
   }, [editingStudent, base]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  // ------------------------------
+  // Field Validation (same as ManageProfile)
+  // ------------------------------
+  const validate = () => {
+    const e = {};
+
+    if (!formData.username.trim()) e.username = "Username is required";
+    if (!formData.fullName.trim()) e.fullName = "Full name is required";
+
+    if (!formData.city.trim()) e.city = "City is required";
+    if (!formData.district.trim()) e.district = "District is required";
+    if (!formData.schoolName.trim()) e.schoolName = "School name is required";
+
+    // Contact
+    if (!formData.contactNumber.toString().trim())
+      e.contactNumber = "Contact number is required";
+    else if (!/^[0-9]{10}$/.test(formData.contactNumber))
+      e.contactNumber = "Enter a valid 10-digit number";
+
+    // Whatsapp
+    if (!formData.whatsappNumber.toString().trim())
+      e.whatsappNumber = "WhatsApp number is required";
+    else if (!/^[0-9]{10}$/.test(formData.whatsappNumber))
+      e.whatsappNumber = "Enter a valid 10-digit number";
+
+    if (!formData.gender) e.gender = "Gender is required";
+    if (!formData.cast.trim()) e.cast = "Cast is required";
+    if (!formData.category.trim()) e.category = "Category is required";
+
+    // Password validation (Admin only)
+    if (!editingStudent || formData.password.trim() !== "") {
+      if (formData.password !== formData.confirmPassword)
+        e.confirmPassword = "Passwords do not match";
+      if (formData.password.length < 6)
+        e.password = "Password must be at least 6 characters";
+    }
+
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
+  // ------------------------------
+  // Submit (Create / Update)
+  // ------------------------------
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!validate()) {
+      Swal.fire("Validation Error", "Please fix form errors.", "error");
+      return;
+    }
 
     try {
       setLoading(true);
       let payload = { ...formData };
 
+      // Hash password only if set
       if (!editingStudent || formData.password.trim() !== "") {
-        if (formData.password !== formData.confirmPassword) {
-          Swal.fire("Error", "Passwords do not match!", "error");
-          return;
-        }
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(formData.password, salt);
         payload.passwordHash = hash;
@@ -95,7 +146,7 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
         Swal.fire("Success", "Student updated successfully!", "success");
       } else {
         await axios.post(`${base}/students`, payload);
-        Swal.fire("Success", "Student added successfully!", "success");
+        Swal.fire("Success", "Student created successfully!", "success");
       }
 
       onSave?.();
@@ -112,149 +163,120 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
     }
   };
 
-  // Get current selected standard number for stream visibility
+  // ------------------------------
+  // Stream Logic
+  // ------------------------------
   const selectedStandard = standards.find(
     (std) => std._id === formData.standardId
   );
   const showStream =
     selectedStandard && Number(selectedStandard.standard) >= 10;
 
+  // ------------------------------
+  // Render
+  // ------------------------------
   return (
     <form
       onSubmit={handleSubmit}
       className="bg-white p-6 rounded-2xl shadow-md space-y-4 max-w-full sm:max-w-2xl mx-auto"
     >
       <h2 className="text-xl font-semibold text-gray-800 mb-4">
-        {editingStudent ? "Update" : "Create Student Account"}
+        {editingStudent ? "Update Student" : "Create Student Account"}
       </h2>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Username */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Username
-          </label>
-          <input
-            type="text"
-            name="username"
-            required
-            value={formData.username}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
+        {/* USERNAME */}
+        <InputField
+          label="Username (Login)"
+          name="username"
+          value={formData.username}
+          onChange={setFormData}
+          error={errors.username}
+          maxLength={30}
+        />
 
-        {/* Password */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Password
-          </label>
-          <input
-            type="password"
-            name="password"
-            placeholder={
-              editingStudent
-                ? "Leave blank to keep unchanged"
-                : "Enter password"
-            }
-            value={formData.password}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-            {...(!editingStudent ? { required: true } : {})}
-          />
-        </div>
+        {/* PASSWORD */}
+        <PasswordField
+          label="Password"
+          name="password"
+          placeholder={
+            editingStudent ? "Leave blank to keep unchanged" : "Enter password"
+          }
+          value={formData.password}
+          onChange={setFormData}
+          error={errors.password}
+          required={!editingStudent}
+        />
 
-        {/* Confirm Password */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Confirm Password
-          </label>
-          <input
-            type="password"
-            name="confirmPassword"
-            placeholder={
-              editingStudent
-                ? "Leave blank to keep unchanged"
-                : "Re-enter password"
-            }
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-            {...(!editingStudent ? { required: true } : {})}
-          />
-        </div>
+        {/* CONFIRM */}
+        <PasswordField
+          label="Confirm Password"
+          name="confirmPassword"
+          placeholder={
+            editingStudent
+              ? "Leave blank to keep unchanged"
+              : "Confirm password"
+          }
+          value={formData.confirmPassword}
+          onChange={setFormData}
+          error={errors.confirmPassword}
+          required={!editingStudent}
+        />
 
-        {/* Full Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Full Name
-          </label>
-          <input
-            type="text"
-            name="fullName"
-            required
-            value={formData.fullName}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
+        {/* FULL NAME */}
+        <InputField
+          label="Full Name"
+          name="fullName"
+          value={formData.fullName}
+          onChange={setFormData}
+          error={errors.fullName}
+          maxLength={50}
+        />
 
-        {/* City */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            City
-          </label>
-          <input
-            type="text"
-            name="city"
-            required
-            value={formData.city}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
+        {/* CITY */}
+        <InputField
+          label="City"
+          name="city"
+          value={formData.city}
+          onChange={setFormData}
+          error={errors.city}
+          maxLength={50}
+        />
 
-        {/* District */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            District
-          </label>
-          <input
-            type="text"
-            name="district"
-            required
-            value={formData.district}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
+        {/* DISTRICT */}
+        <InputField
+          label="District"
+          name="district"
+          value={formData.district}
+          onChange={setFormData}
+          error={errors.district}
+          maxLength={50}
+        />
 
-        {/* School Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            School Name
-          </label>
-          <input
-            type="text"
-            name="schoolName"
-            required
-            value={formData.schoolName}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
+        {/* SCHOOL NAME */}
+        <InputField
+          label="School Name"
+          name="schoolName"
+          value={formData.schoolName}
+          onChange={setFormData}
+          error={errors.schoolName}
+          maxLength={50}
+        />
 
-        {/* Standard */}
+        {/* STANDARD */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
             Standard
           </label>
           <select
             name="standardId"
-            required
             value={formData.standardId}
-            onChange={handleChange}
+            onChange={(e) =>
+              setFormData((p) => ({ ...p, standardId: e.target.value }))
+            }
+            required
             disabled={!!editingStudent}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full border border-gray-300 rounded-lg p-2 mt-1 disabled:bg-gray-100"
           >
             <option value="">Select Standard</option>
             {standards.map((std) => (
@@ -265,130 +287,84 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
           </select>
         </div>
 
-        {/* Stream (conditional) */}
+        {/* STREAM */}
         {showStream && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Stream
-            </label>
-            <select
-              name="stream"
-              value={formData.stream}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="">Select Stream</option>
-              <option value="SCIENCE">SCIENCE</option>
-              <option value="COMMERCE">COMMERCE</option>
-              <option value="ARTS">ARTS</option>
-              <option value="OTHER">OTHER</option>
-            </select>
-          </div>
+          <SelectField
+            label="Stream"
+            name="stream"
+            value={formData.stream}
+            onChange={setFormData}
+            options={["SCIENCE", "COMMERCE", "ARTS", "OTHER"]}
+          />
         )}
 
-        {/* Contact Number */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Contact Number
-          </label>
-          <input
-            type="number"
-            name="contactNumber"
-            required
-            value={formData.contactNumber}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
+        {/* CONTACT */}
+        <InputField
+          label="Contact Number"
+          name="contactNumber"
+          value={formData.contactNumber}
+          onChange={setFormData}
+          error={errors.contactNumber}
+          maxLength={10}
+          inputMode="numeric"
+        />
 
-        {/* WhatsApp Number */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            WhatsApp Number
-          </label>
-          <input
-            type="number"
-            name="whatsappNumber"
-            required
-            value={formData.whatsappNumber}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
+        {/* WHATSAPP */}
+        <InputField
+          label="WhatsApp Number"
+          name="whatsappNumber"
+          value={formData.whatsappNumber}
+          onChange={setFormData}
+          error={errors.whatsappNumber}
+          maxLength={10}
+          inputMode="numeric"
+        />
 
-        {/* Gender */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Gender
-          </label>
-          <select
-            name="gender"
-            required
-            value={formData.gender}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            <option value="">Select</option>
-            <option>Male</option>
-            <option>Female</option>
-          </select>
-        </div>
+        {/* GENDER */}
+        <SelectField
+          label="Gender"
+          name="gender"
+          value={formData.gender}
+          onChange={setFormData}
+          error={errors.gender}
+          options={["Male", "Female"]}
+        />
 
-        {/* Cast */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Cast
-          </label>
-          <input
-            type="text"
-            name="cast"
-            required
-            value={formData.cast}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
+        {/* CAST */}
+        <InputField
+          label="Cast"
+          name="cast"
+          value={formData.cast}
+          onChange={setFormData}
+          error={errors.cast}
+          maxLength={20}
+        />
 
-        {/* Category */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Category
-          </label>
-          <select
-            name="category"
-            required
-            value={formData.category}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            <option value="">Select</option>
-            <option value="SC">SC</option>
-            <option value="ST">ST</option>
-            <option value="OBC">OBC</option>
-            <option value="OPEN">OPEN</option>
-            <option value="OTHER">OTHER</option>
-          </select>
-        </div>
+        {/* CATEGORY */}
+        <SelectField
+          label="Category"
+          name="category"
+          value={formData.category}
+          onChange={setFormData}
+          error={errors.category}
+          options={["SC", "ST", "OBC", "OPEN", "OTHER"]}
+        />
       </div>
-      {/* Buttons */}
+
+      {/* BUTTONS */}
       <div className="flex justify-end space-x-3 pt-4">
         <button
           type="button"
-          onClick={() => {
-            if (onClose) onClose(); // For modal usage (Admin Dashboard)
-            else window.history.back(); // For direct route (Student Register page)
-          }}
-          className={`px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition ${
-            loading && "opacity-60 cursor-not-allowed"
-          }`}
+          onClick={() => (onClose ? onClose() : window.history.back())}
+          className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
         >
           Cancel
         </button>
+
         <button
           type="submit"
-          className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition ${
-            loading && "opacity-60 cursor-not-allowed"
-          }`}
+          disabled={loading}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
         >
           {loading ? (
             <Spin size="small" />
@@ -400,5 +376,70 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
         </button>
       </div>
     </form>
+  );
+}
+
+/* ---------------------------
+   Reusable Input Components
+---------------------------- */
+function InputField({ label, name, value, onChange, error, ...rest }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <input
+        {...rest}
+        name={name}
+        value={value}
+        onChange={(e) => onChange((p) => ({ ...p, [name]: e.target.value }))}
+        className={`w-full border rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none ${
+          error ? "border-red-500" : "border-gray-300"
+        }`}
+      />
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
+  );
+}
+
+function PasswordField({ label, name, value, onChange, error, ...rest }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <input
+        type="password"
+        name={name}
+        value={value}
+        onChange={(e) => onChange((p) => ({ ...p, [name]: e.target.value }))}
+        {...rest}
+        className={`w-full border rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none ${
+          error ? "border-red-500" : "border-gray-300"
+        }`}
+      />
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
+  );
+}
+
+function SelectField({ label, name, value, onChange, error, options }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <select
+        name={name}
+        value={value}
+        onChange={(e) => onChange((p) => ({ ...p, [name]: e.target.value }))}
+        className={`w-full border rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none ${
+          error ? "border-red-500" : "border-gray-300"
+        }`}
+      >
+        <option value="">Select</option>
+        {options.map((op) => (
+          <option key={op} value={op}>
+            {op}
+          </option>
+        ))}
+      </select>
+
+      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+    </div>
   );
 }

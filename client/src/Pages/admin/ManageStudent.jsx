@@ -138,29 +138,61 @@ export default function ManageStudent() {
     setEditModalOpen(true);
   };
 
-  // Delete
   const handleDelete = async (id) => {
-    const confirm = await Swal.fire({
-      title: "Are you sure?",
-      text: "This student record will be deleted!",
-      icon: "warning",
+    // Step 1: Ask for deletion password
+    const { value: password } = await Swal.fire({
+      title: "Enter Delete Password",
+      input: "password",
+      inputLabel: "This action requires admin delete password",
+      inputPlaceholder: "Enter delete password",
+      inputAttributes: {
+        autocapitalize: "off",
+        autocorrect: "off",
+      },
       showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete it!",
+      confirmButtonText: "Verify",
     });
 
-    if (confirm.isConfirmed) {
-      try {
-        setLoading(true);
-        await axios.delete(`${base}/students/${id}/hard`);
-        Swal.fire("Deleted!", "Student record deleted.", "success");
-        fetchStudents();
-      } catch (error) {
-        Swal.fire("Error", "Failed to delete student", "error");
-      } finally {
-        setLoading(false);
+    if (!password) return; // user cancelled
+
+    try {
+      setLoading(true);
+
+      // Step 2: Verify delete password
+      const verifyRes = await axios.post(
+        `${base}/students/verify-student-delete-password`,
+        {
+          password,
+        }
+      );
+
+      if (!verifyRes.data.success) {
+        Swal.fire("Denied", "Invalid delete password!", "error");
+        return;
       }
+
+      // Step 3: Ask final confirmation
+      const confirm = await Swal.fire({
+        title: "Are you sure?",
+        text: "This student record will be deleted permanently!",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#3085d6",
+        confirmButtonText: "Yes, delete!",
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      // Step 4: Delete student
+      await axios.delete(`${base}/students/${id}/hard`);
+
+      Swal.fire("Deleted!", "Student record has been deleted.", "success");
+      fetchStudents();
+    } catch (error) {
+      Swal.fire("Error", "Failed to verify or delete student", "error");
+    } finally {
+      setLoading(false);
     }
   };
 

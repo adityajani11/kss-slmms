@@ -1,4 +1,5 @@
 const Student = require("../models/Student");
+const Admin = require("../models/Admin");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -309,6 +310,9 @@ exports.update = async (req, res) => {
       ...(payload.gender && { gender: payload.gender }),
       ...(payload.cast && { cast: payload.cast.trim() }),
       ...(payload.category && { category: payload.category }),
+
+      // 🔥 Update password ONLY IF provided
+      ...(payload.passwordHash && { passwordHash: payload.passwordHash }),
     };
 
     // Perform update
@@ -404,5 +408,37 @@ exports.hardDelete = async (req, res) => {
       message: "An error occurred while deleting the student.",
       error: err.message,
     });
+  }
+};
+
+// API For verifying student delete password
+exports.verifyStudentDeletePassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Password required" });
+    }
+
+    // Assuming single admin OR logged-in admin id from JWT
+    const admin = await Admin.findOne(); // If single admin exists
+
+    if (!admin || !admin.studentDeletePassword) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Delete password not set by admin" });
+    }
+
+    const isMatch = await bcrypt.compare(password, admin.studentDeletePassword);
+
+    if (!isMatch) {
+      return res.json({ success: false, error: "Invalid password" });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 };

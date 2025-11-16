@@ -25,6 +25,7 @@ import MyGeneratedPapersStaffAdmin from "./pages/admin/MyGeneratedPapersStaffAdm
 import TestHistory from "./pages/student/TestHistory";
 import SelectMCQs from "./components/SelectMCQs";
 import ViewAllMCQs from "./pages/student/ViewAllMCQs";
+import Settings from "./pages/admin/Settings";
 
 import "katex/dist/katex.min.css";
 
@@ -58,6 +59,7 @@ function App() {
           element={<MyGeneratedPapersStaffAdmin />}
         />
         <Route path="manage-materials" element={<ManageMaterial />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
 
       {/* Staff Routes */}

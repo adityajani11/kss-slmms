@@ -1,3 +1,4 @@
+// models/Admin.js
 const mongoose = require("mongoose");
 
 const adminSchema = new mongoose.Schema(
@@ -11,6 +12,10 @@ const adminSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
+    },
+    studentDeletePassword: {
+      type: String,
+      default: null,
     },
     contactNumber: {
       type: String,
