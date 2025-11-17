@@ -10,6 +10,7 @@ router.post(
   "/verify-student-delete-password",
   ctrl.verifyStudentDeletePassword
 );
+router.get("/export", ctrl.export);
 router.get("/:id", ctrl.getById);
 router.put("/:id", ctrl.update);
 router.delete("/:id", ctrl.softDelete);

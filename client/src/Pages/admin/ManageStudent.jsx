@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import Swal from "sweetalert2";
@@ -12,86 +12,121 @@ import StudentForm from "../../components/StudentForm";
 
 export default function ManageStudent() {
   const [students, setStudents] = useState([]);
-  const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+
+  const searchKeys = ["city", "district", "schoolName", "cast"];
+
+  // search / filter UI state
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchOptions, setSearchOptions] = useState({
     city: false,
+    district: false,
     schoolName: false,
     cast: false,
-    religion: false,
   });
   const [filterStandard, setFilterStandard] = useState("");
   const [filterGender, setFilterGender] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
   const base = import.meta.env.VITE_API_BASE_URL;
 
-  // Fetch all students
-  const fetchStudents = async () => {
+  // pagination
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [total, setTotal] = useState(0);
+
+  // helper: build query params to send to backend
+  const buildParams = useCallback(() => {
+    const params = {
+      page,
+      limit,
+    };
+
+    // standard & gender filters
+    if (filterStandard) params.standardId = filterStandard;
+    if (filterGender) params.gender = filterGender;
+
+    // search behaviour: always set `search` for name/username search
+    if (debouncedSearch && debouncedSearch.trim()) {
+      params.search = debouncedSearch.trim();
+
+      // if user checked specific fields, also send them explicitly so backend can apply to those fields
+      if (searchOptions.city) params.city = debouncedSearch.trim();
+      if (searchOptions.district) params.district = debouncedSearch.trim();
+      if (searchOptions.schoolName) params.schoolName = debouncedSearch.trim();
+      if (searchOptions.cast) params.cast = debouncedSearch.trim();
+    }
+
+    // include disabled toggle if you ever add it
+    // params.includeDisabled = true/false
+
+    return params;
+  }, [
+    page,
+    limit,
+    debouncedSearch,
+    filterStandard,
+    filterGender,
+    searchOptions,
+  ]);
+
+  // fetch paginated students from server
+  const fetchStudents = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await axios.get(`${base}/students/`);
-      const list = res.data?.data?.items || [];
-      setStudents(list);
-      setFiltered(list);
-    } catch (error) {
-      console.error("Error fetching students:", error);
+      const params = buildParams();
+      const res = await axios.get(`${base}/students`, { params });
+      const data = res.data?.data || {};
+      setStudents(data.items || []);
+      setTotal(data.total || 0);
+      // sync backend page & limit if backend adjusts them
+      if (data.page && data.page !== page) setPage(data.page);
+      if (data.limit && data.limit !== limit) setLimit(data.limit);
+    } catch (err) {
+      console.error("Failed to fetch students", err);
       Swal.fire("Error", "Failed to load students", "error");
     } finally {
       setLoading(false);
     }
-  };
+  }, [base, buildParams, page, limit]);
 
+  // initial & reactive fetch
   useEffect(() => {
     fetchStudents();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchStudents]);
+
+  // when page/limit changes, fetch
+  useEffect(() => {
+    fetchStudents();
+  }, [page, limit]);
+
+  // debounce search input to avoid frequent requests
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 350);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // when filters/search change, reset to page 1 and fetch
+  useEffect(() => {
+    setPage(1);
+    fetchStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    debouncedSearch,
+    filterStandard,
+    filterGender,
+    JSON.stringify(searchOptions),
+  ]);
 
   useEffect(() => {
     document.body.style.overflow = editModalOpen ? "hidden" : "auto";
   }, [editModalOpen]);
 
-  // Handle search + filters
-  useEffect(() => {
-    let result = [...students];
-
-    if (filterGender) {
-      result = result.filter((s) => s.gender === filterGender);
-    }
-
-    if (filterStandard) {
-      result = result.filter(
-        (s) => String(s.standardId?.standard) === String(filterStandard)
-      );
-    }
-
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter((s) => {
-        const defaultMatch =
-          s.fullName?.toLowerCase().includes(term) ||
-          s.username?.toLowerCase().includes(term);
-
-        const cityMatch =
-          searchOptions.city && s.city?.toLowerCase().includes(term);
-        const districtMatch =
-          searchOptions.district && s.district?.toLowerCase().includes(term);
-        const schoolMatch =
-          searchOptions.schoolName &&
-          s.schoolName?.toLowerCase().includes(term);
-        const castMatch =
-          searchOptions.cast && s.cast?.toLowerCase().includes(term);
-
-        return (
-          defaultMatch || cityMatch || districtMatch || schoolMatch || castMatch
-        );
-      });
-    }
-
-    setFiltered(result);
-  }, [students, searchTerm, searchOptions, filterStandard, filterGender]);
-
-  // View details
+  // view / edit / delete (delete flow kept same as your implementation)
   const handleView = (student) => {
     Swal.fire({
       icon: "info",
@@ -132,46 +167,35 @@ export default function ManageStudent() {
     });
   };
 
-  // Edit
   const handleEdit = (student) => {
     setSelectedStudent(student);
     setEditModalOpen(true);
   };
 
   const handleDelete = async (id) => {
-    // Step 1: Ask for deletion password
     const { value: password } = await Swal.fire({
       title: "Enter Delete Password",
       input: "password",
       inputLabel: "This action requires admin delete password",
       inputPlaceholder: "Enter delete password",
-      inputAttributes: {
-        autocapitalize: "off",
-        autocorrect: "off",
-      },
+      inputAttributes: { autocapitalize: "off", autocorrect: "off" },
       showCancelButton: true,
       confirmButtonText: "Verify",
     });
 
-    if (!password) return; // user cancelled
+    if (!password) return;
 
     try {
       setLoading(true);
-
-      // Step 2: Verify delete password
       const verifyRes = await axios.post(
         `${base}/students/verify-student-delete-password`,
-        {
-          password,
-        }
+        { password }
       );
-
       if (!verifyRes.data.success) {
         Swal.fire("Denied", "Invalid delete password!", "error");
         return;
       }
 
-      // Step 3: Ask final confirmation
       const confirm = await Swal.fire({
         title: "Are you sure?",
         text: "This student record will be deleted permanently!",
@@ -184,168 +208,187 @@ export default function ManageStudent() {
 
       if (!confirm.isConfirmed) return;
 
-      // Step 4: Delete student
       await axios.delete(`${base}/students/${id}/hard`);
-
       Swal.fire("Deleted!", "Student record has been deleted.", "success");
       fetchStudents();
-    } catch (error) {
+    } catch (err) {
+      console.error(err);
       Swal.fire("Error", "Failed to verify or delete student", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  // Download as PDF with confirmation
-  const downloadPDF = async () => {
-    if (filtered.length === 0) return;
-
-    const confirm = await Swal.fire({
-      title: "Download PDF?",
-      text: "Do you want to download the student list as a PDF file?",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#2563eb",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, download",
-    });
-
-    if (!confirm.isConfirmed) return;
-
-    const doc = new jsPDF({
-      orientation: "landscape",
-      unit: "pt",
-      format: "A4",
-    });
-
-    doc.setFontSize(14);
-    doc.text("Student List", 40, 40);
-
-    const tableColumn = [
-      "#",
-      "Full Name",
-      "Username",
-      "City",
-      "District",
-      "School Name",
-      "Standard",
-      "Stream",
-      "Gender",
-      "Cast",
-      "Category",
-      "Contact Number",
-      "WhatsApp Number",
-    ];
-
-    const tableRows = filtered.map((s, i) => [
-      i + 1,
-      s.fullName || "N/A",
-      s.username || "N/A",
-      s.city || "N/A",
-      s.district || "N/A",
-      s.schoolName || "N/A",
-      s.standardId?.standard || "N/A",
-      s.stream || "-",
-      s.gender || "N/A",
-      s.cast || "N/A",
-      s.category || "N/A",
-      s.contactNumber || "N/A",
-      s.whatsappNumber || "N/A",
-    ]);
-
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 60,
-      theme: "grid",
-      headStyles: { fillColor: [79, 70, 229], textColor: 255 },
-      styles: { fontSize: 9, cellPadding: 4 },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      margin: { top: 50, bottom: 30 },
-      didDrawPage: function (data) {
-        // Add footer with page number + date
-        const pageCount = doc.internal.getNumberOfPages();
-        doc.setFontSize(9);
-        doc.text(
-          `Generated on: ${new Date().toLocaleDateString()}`,
-          40,
-          doc.internal.pageSize.height - 20
-        );
-        doc.text(
-          `Page ${data.pageNumber} of ${pageCount}`,
-          doc.internal.pageSize.width - 100,
-          doc.internal.pageSize.height - 20
-        );
-      },
-    });
-
-    doc.save("STUDENTS.pdf");
+  // EXPORTS
+  // 1) Server CSV stream (efficient) — opens new tab to trigger streaming download
+  const downloadCSV = () => {
+    const params = buildParams();
+    params.format = "csv";
+    const qs = new URLSearchParams(params).toString();
+    const url = `${base}/students/export?${qs}`;
+    window.open(url, "_blank");
   };
 
-  // Download as Excel with confirmation (all data)
-  const downloadExcel = async () => {
-    if (filtered.length === 0) return;
+  // 2) PDF export: request JSON from server then build PDF client-side
+  const downloadPDF = async () => {
+    const params = buildParams();
+    params.format = "json";
 
-    const confirm = await Swal.fire({
+    Swal.fire({
+      title: "Preparing PDF...",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+    try {
+      const res = await axios.get(`${base}/students/export`, {
+        params,
+        responseType: "json",
+      });
+      const data = res.data;
+      if (!Array.isArray(data) || data.length === 0) {
+        Swal.fire("No data", "No students to export", "info");
+        return;
+      }
+
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: "A4",
+      });
+      doc.setFontSize(14);
+      doc.text("Student List", 40, 40);
+
+      const tableColumn = [
+        "#",
+        "Full Name",
+        "Username",
+        "City",
+        "District",
+        "School Name",
+        "Standard",
+        "Stream",
+        "Gender",
+        "Cast",
+        "Category",
+        "Contact Number",
+        "WhatsApp Number",
+      ];
+
+      const tableRows = data.map((s, i) => [
+        i + 1,
+        s.fullName || "N/A",
+        s.username || "N/A",
+        s.city || "N/A",
+        s.district || "N/A",
+        s.schoolName || "N/A",
+        s.standardId?.standard || "N/A",
+        s.stream || "-",
+        s.gender || "N/A",
+        s.cast || "N/A",
+        s.category || "N/A",
+        s.contactNumber || "N/A",
+        s.whatsappNumber || "N/A",
+      ]);
+
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 60,
+        theme: "grid",
+        headStyles: { fillColor: [79, 70, 229], textColor: 255 },
+        styles: { fontSize: 9, cellPadding: 4 },
+        margin: { top: 50, bottom: 30 },
+      });
+
+      doc.save("STUDENTS.pdf");
+    } catch (err) {
+      console.error("PDF export failed", err);
+      Swal.fire("Error", "PDF export failed", "error");
+    } finally {
+      Swal.close();
+    }
+  };
+
+  // 3) Excel (XLSX) — fetch JSON from server then convert to XLSX client-side.
+  // NOTE: for very large datasets prefer server-side Excel generation (exceljs + background job).
+  const downloadExcel = async () => {
+    const params = buildParams();
+    params.format = "json";
+
+    const proceed = await Swal.fire({
       title: "Download Excel?",
-      text: "Do you want to download the complete student list as an Excel file?",
+      text: "This will fetch all matching students from server. For very large exports this may take time. Continue?",
       icon: "question",
       showCancelButton: true,
-      confirmButtonColor: "#2563eb",
-      cancelButtonColor: "#d33",
       confirmButtonText: "Yes, download",
     });
+    if (!proceed.isConfirmed) return;
 
-    if (!confirm.isConfirmed) return;
-
-    // Include all relevant fields
-    const wsData = filtered.map((s, index) => ({
-      "#": index + 1,
-      "Full Name": s.fullName || "N/A",
-      Username: s.username || "N/A",
-      City: s.city || "N/A",
-      District: s.district || "N/A",
-      "School Name": s.schoolName || "N/A",
-      Standard: s.standardId?.standard || "N/A",
-      Stream: s.stream || "-",
-      Gender: s.gender || "N/A",
-      Cast: s.cast || "N/A",
-      Category: s.category || "N/A",
-      "Contact Number": s.contactNumber || "N/A",
-      "WhatsApp Number": s.whatsappNumber || "N/A",
-      "Registered On": s.createdAt
-        ? new Date(s.createdAt).toLocaleDateString("en-IN")
-        : "N/A",
-    }));
-
-    // Create worksheet + workbook
-    const worksheet = XLSX.utils.json_to_sheet(wsData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
-
-    // Auto width for columns
-    const columnWidths = Object.keys(wsData[0] || {}).map((key) => ({
-      wch: Math.max(key.length + 2, 15),
-    }));
-    worksheet["!cols"] = columnWidths;
-
-    // Write Excel file
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
+    Swal.fire({
+      title: "Preparing Excel...",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
     });
+    try {
+      const res = await axios.get(`${base}/students/export`, {
+        params,
+        responseType: "json",
+      });
+      const data = res.data;
+      if (!Array.isArray(data) || data.length === 0) {
+        Swal.fire("No data", "No students to export", "info");
+        return;
+      }
 
-    const blob = new Blob([excelBuffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
+      const wsData = data.map((s, i) => ({
+        "#": i + 1,
+        "Full Name": s.fullName || "N/A",
+        Username: s.username || "N/A",
+        City: s.city || "N/A",
+        District: s.district || "N/A",
+        "School Name": s.schoolName || "N/A",
+        Standard: s.standardId?.standard || "N/A",
+        Stream: s.stream || "-",
+        Gender: s.gender || "N/A",
+        Cast: s.cast || "N/A",
+        Category: s.category || "N/A",
+        "Contact Number": s.contactNumber || "N/A",
+        "WhatsApp Number": s.whatsappNumber || "N/A",
+        "Registered On": s.createdAt
+          ? new Date(s.createdAt).toLocaleString("en-IN")
+          : "N/A",
+      }));
 
-    saveAs(blob, "STUDENTS.xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(wsData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+
+      // auto width
+      const columnWidths = Object.keys(wsData[0] || {}).map((key) => ({
+        wch: Math.max(key.length + 2, 15),
+      }));
+      worksheet["!cols"] = columnWidths;
+
+      const excelBuffer = XLSX.write(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
+      const blob = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      saveAs(blob, "STUDENTS.xlsx");
+    } catch (err) {
+      console.error("Excel export failed", err);
+      Swal.fire("Error", "Excel export failed", "error");
+    } finally {
+      Swal.close();
+    }
   };
 
   if (loading) return <Loader />;
 
   return (
-    <div className="px-3 py-2">
+    <>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <h1 className="text-3xl font-semibold text-gray-800 tracking-tight">
@@ -355,24 +398,14 @@ export default function ManageStudent() {
         <div className="flex flex-wrap items-center gap-3 mt-4 sm:mt-0">
           <button
             onClick={downloadPDF}
-            disabled={filtered.length === 0}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm transition-all ${
-              filtered.length === 0
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-red-100 hover:bg-red-200 text-red-700"
-            }`}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm transition-all bg-red-100 hover:bg-red-200 text-red-700`}
           >
             PDF
           </button>
 
           <button
             onClick={downloadExcel}
-            disabled={filtered.length === 0}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm transition-all ${
-              filtered.length === 0
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                : "bg-green-100 hover:bg-green-200 text-green-700"
-            }`}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm transition-all bg-green-100 hover:bg-green-200 text-green-700`}
           >
             Excel
           </button>
@@ -419,25 +452,26 @@ export default function ManageStudent() {
         {/* Collapsible Filters */}
         <div
           className={`transition-all duration-300 overflow-hidden ${
-            showFilters
-              ? "max-h-96 mt-4 opacity-100 cursor-pointer"
-              : "max-h-0 opacity-0"
+            showFilters ? "max-h-96 mt-4 opacity-100" : "max-h-0 opacity-0"
           }`}
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            {/* Checkboxes */}
             <div className="flex flex-wrap gap-3">
-              {["city", "district", "schoolName", "cast"].map((key) => (
+              {Object.keys(searchOptions).map((key) => (
                 <label key={key} className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={searchOptions[key]}
-                    onChange={(e) =>
-                      setSearchOptions({
-                        ...searchOptions,
-                        [key]: e.target.checked,
-                      })
-                    }
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+
+                      setSearchOptions(
+                        searchKeys.reduce((acc, k) => {
+                          acc[k] = k === key ? checked : false;
+                          return acc;
+                        }, {})
+                      );
+                    }}
                     className="accent-indigo-600"
                   />
                   Search by {key === "schoolName" ? "school" : key}
@@ -445,7 +479,6 @@ export default function ManageStudent() {
               ))}
             </div>
 
-            {/* Dropdown filters */}
             <div className="flex flex-wrap p-2 gap-3">
               <select
                 value={filterStandard}
@@ -479,13 +512,12 @@ export default function ManageStudent() {
       </div>
 
       {/* 🧾 Student Table */}
-      {filtered.length === 0 ? (
+      {students.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg text-gray-500 text-lg shadow-sm">
           No students found.
         </div>
       ) : (
         <>
-          {/* Table for md+ */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full border border-gray-200 rounded-lg">
               <thead className="bg-indigo-100">
@@ -499,12 +531,12 @@ export default function ManageStudent() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((student, index) => (
+                {students.map((student, index) => (
                   <tr
                     key={student._id}
                     className="border-t hover:bg-gray-50 transition"
                   >
-                    <td className="p-3">{index + 1}</td>
+                    <td className="p-3">{(page - 1) * limit + index + 1}</td>
                     <td className="p-3">{student.fullName || "N/A"}</td>
                     <td className="p-3">{student.city || "N/A"}</td>
                     <td className="p-3">{student.schoolName || "N/A"}</td>
@@ -542,9 +574,9 @@ export default function ManageStudent() {
             </table>
           </div>
 
-          {/* Card layout for mobile */}
+          {/* Mobile cards */}
           <div className="sm:hidden grid grid-cols-1 gap-3">
-            {filtered.map((student) => (
+            {students.map((student) => (
               <div
                 key={student._id}
                 className="border p-3 rounded-lg shadow-sm bg-white flex justify-between items-center"
@@ -589,6 +621,57 @@ export default function ManageStudent() {
         </>
       )}
 
+      {/* Responsive Pagination */}
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {/* Showing text */}
+        <div className="text-sm text-gray-700 text-center sm:text-left">
+          Showing {(page - 1) * limit + 1} - {Math.min(page * limit, total)} of{" "}
+          {total}
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="flex flex-col xs:flex-row items-center gap-2 w-full sm:w-auto">
+          {/* Buttons + Page Number (scrollable on mobile) */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full xs:w-auto py-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 border rounded whitespace-nowrap disabled:opacity-50"
+            >
+              Prev
+            </button>
+
+            <span className="px-3 py-1 whitespace-nowrap text-gray-700">
+              Page {page}
+            </span>
+
+            <button
+              onClick={() => setPage((p) => (p * limit < total ? p + 1 : p))}
+              disabled={page * limit >= total}
+              className="px-3 py-1 border rounded whitespace-nowrap disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+
+          {/* Limit Selector */}
+          <select
+            value={limit}
+            onChange={(e) => {
+              setLimit(parseInt(e.target.value, 10));
+              setPage(1);
+            }}
+            className="border rounded px-3 py-1 text-sm w-full xs:w-auto"
+          >
+            {[10, 20, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n} / page
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <AnimatePresence>
         {editModalOpen && (
           <motion.div
@@ -616,12 +699,15 @@ export default function ManageStudent() {
               <StudentForm
                 editingStudent={selectedStudent}
                 onClose={() => setEditModalOpen(false)}
-                onSave={fetchStudents}
+                onSave={() => {
+                  setEditModalOpen(false);
+                  fetchStudents();
+                }}
               />
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }

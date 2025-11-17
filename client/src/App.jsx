@@ -11,9 +11,7 @@ import ManageStaff from "./pages/admin/ManageStaff";
 import StaffDashboard from "./pages/staff/StaffDashboard";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import ManageStudent from "./pages/admin/ManageStudent";
-import ManageStandard from "./pages/admin/ManageStandard";
-import ManageCategory from "./pages/admin/ManageCategory";
-import ManageSubject from "./pages/admin/ManageSubject";
+import AcademicManagement from "./pages/admin/AcademicManagement";
 import ManageMCQ from "./pages/admin/ManageMCQ";
 import ManageMaterial from "./pages/admin/ManageMaterial";
 import StudentForm from "./components/StudentForm";
@@ -50,9 +48,7 @@ function App() {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="manage-staff" element={<ManageStaff />} />
         <Route path="manage-student" element={<ManageStudent />} />
-        <Route path="manage-standard" element={<ManageStandard />} />
-        <Route path="manage-categories" element={<ManageCategory />} />
-        <Route path="manage-subjects" element={<ManageSubject />} />
+        <Route path="manage-academics" element={<AcademicManagement />} />
         <Route path="manage-mcqs" element={<ManageMCQ />} />
         <Route
           path="my-generated-papers"

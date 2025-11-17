@@ -142,6 +142,17 @@ exports.list = async (req, res) => {
     if (req.query.categoryId) q.categoryId = req.query.categoryId;
     if (req.query.createdBy) q.createdBy = req.query.createdBy;
 
+    // Search
+    if (req.query.search && req.query.search.trim() !== "") {
+      const s = req.query.search.trim();
+
+      q.$or = [
+        { "question.text": { $regex: s, $options: "i" } },
+        { explanation: { $regex: s, $options: "i" } },
+        { "options.label": { $regex: s, $options: "i" } },
+      ];
+    }
+
     // For future: handle disabled logic if soft-delete added
     if (req.query.includeDisabled === "true") {
       q.disabled = { $in: [true, false] };
@@ -149,7 +160,7 @@ exports.list = async (req, res) => {
 
     // Pagination setup
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 30;
     const skip = (page - 1) * limit;
 
     // Fetch total count (for frontend pagination)
@@ -327,27 +338,61 @@ exports.hardDelete = async (req, res) => {
   }
 };
 
-// Get MCQs by Standard ID
+// Get MCQs by Standard ID (Paginated + Filters)
 exports.getByStandard = async (req, res) => {
   try {
     const { standardId } = req.params;
-    if (!standardId)
+    if (!standardId) {
       return res
         .status(400)
         .json({ success: false, error: "standardId required" });
+    }
 
-    const mcqs = await MCQ.find({
+    // Pagination params
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
+    const skip = (page - 1) * limit;
+
+    // Filters
+    const { subjectId, categoryId, q } = req.query;
+
+    const filter = {
       standardId,
       deleted: { $ne: true },
-    })
+    };
+
+    if (subjectId) filter.subjectId = subjectId;
+    if (categoryId) filter.categoryId = categoryId;
+
+    // Search on question or options text
+    if (q && q.trim() !== "") {
+      const regex = new RegExp(q.trim(), "i"); // case-insensitive search
+
+      filter.$or = [
+        { "question.text": regex },
+        { "options.label": regex },
+        { explanation: regex },
+      ];
+    }
+
+    // Count total (for pagination UI)
+    const total = await MCQ.countDocuments(filter);
+
+    // Fetch paginated data
+    const mcqs = await MCQ.find(filter)
       .populate("subjectId", "name")
       .populate("categoryId", "name")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    if (!mcqs.length)
-      return res.status(404).json({ success: false, message: "No MCQs found" });
-
-    res.json({ success: true, data: mcqs });
+    return res.json({
+      success: true,
+      data: mcqs,
+      total,
+      page,
+      limit,
+    });
   } catch (err) {
     console.error("Error fetching MCQs:", err);
     res.status(500).json({ success: false, error: "Server error" });
@@ -601,48 +646,67 @@ function wrapGujarati(text) {
 /* ---------- API: DOWNLOAD MCQ PDF ROUTE ---------- */
 exports.getFilteredMcqPDF = async (req, res) => {
   try {
-    const { mcqs, pdfHeading } = req.body;
+    const { mcqIds, pdfHeading, includeAnswers } = req.body;
 
     // Validate input
-    if (!mcqs || !Array.isArray(mcqs) || mcqs.length === 0) {
+    if (!mcqIds || !Array.isArray(mcqIds) || mcqIds.length === 0) {
       return res.status(400).json({
         success: false,
-        error: "No MCQs provided for export",
+        error: "No MCQ IDs provided",
       });
     }
 
-    // --- Build the same HTML using your existing builder ---
-    const html = buildHTML(mcqs, pdfHeading);
+    // Fetch full MCQs by IDs
+    const mcqs = await MCQ.find({ _id: { $in: mcqIds } })
+      .populate("subjectId", "name")
+      .populate("categoryId", "name")
+      .sort({ createdAt: -1 });
 
-    // --- Generate PDF using Puppeteer (same setup) ---
+    if (!mcqs.length) {
+      return res.status(404).json({
+        success: false,
+        error: "No MCQs found for the provided IDs",
+      });
+    }
+
+    // Pass includeAnswers to HTML builder
+    const html = buildHTML(mcqs, pdfHeading, includeAnswers);
+
+    // --- Generate PDF using Puppeteer ---
     const browser = await puppeteer.launch({
       headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle2" });
     await page.evaluateHandle("document.fonts.ready");
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((res) => setTimeout(res, 100));
 
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "40px", bottom: "40px", left: "40px", right: "40px" },
+      margin: {
+        top: "40px",
+        bottom: "40px",
+        left: "35px",
+        right: "35px",
+      },
     });
 
     await browser.close();
 
     res.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": 'inline; filename="Filtered-MCQs.pdf"',
+      "Content-Disposition": `inline; filename="${pdfHeading}.pdf"`,
     });
 
-    res.send(pdfBuffer);
+    return res.send(pdfBuffer);
   } catch (err) {
-    console.error("Filtered PDF generation error:", err);
-    res
-      .status(500)
-      .json({ success: false, error: "Failed to generate filtered PDF" });
+    console.error("PDF generation error:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate PDF",
+    });
   }
 };

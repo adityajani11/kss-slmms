@@ -38,23 +38,6 @@ export default function MathEditor({ value, onChange }) {
     return () => el.removeEventListener("input", handleInput);
   }, [mode, onChange]);
 
-  // Toolbar configuration (LaTeX commands)
-  const toolbarSymbols = [
-    ["\\pi", "π"],
-    ["\\alpha", "α"],
-    ["\\beta", "β"],
-    ["\\gamma", "γ"],
-    ["\\lambda", "λ"],
-    ["\\theta", "θ"],
-    ["\\sin", "sin"],
-    ["\\cos", "cos"],
-    ["\\tan", "tan"],
-    ["^{\\circ}", "°"],
-    ["\\Delta", "Δ"],
-    ["\\sqrt{}", "√"],
-    ["\\frac{}{}", "a/b"],
-  ];
-
   const insertSymbol = (cmd) => {
     const el = ref.current;
     if (!el) return;
@@ -89,20 +72,6 @@ export default function MathEditor({ value, onChange }) {
             ? "Type LaTeX commands, e.g. \\alpha, 10^{\\circ}"
             : "Type Gujarati / English text"}
         </span>
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-2 mb-2">
-        {toolbarSymbols.map(([cmd, label]) => (
-          <button
-            key={cmd}
-            onClick={() => insertSymbol(cmd)}
-            type="button"
-            className="px-2 py-1 rounded border border-gray-400 bg-gray-50 hover:bg-gray-200 text-sm"
-          >
-            {label}
-          </button>
-        ))}
       </div>
 
       {/* Editable Math Field */}

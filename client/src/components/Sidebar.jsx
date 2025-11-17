@@ -69,19 +69,9 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
         to: "/admin/manage-mcqs",
       },
       {
-        label: "Manage Standards",
-        icon: <Layers size={18} />,
-        to: "/admin/manage-standard",
-      },
-      {
-        label: "Manage Categories",
+        label: "Manage Academics",
         icon: <FolderOpen size={18} />,
-        to: "/admin/manage-categories",
-      },
-      {
-        label: "Manage Subjects",
-        icon: <FolderOpen size={18} />,
-        to: "/admin/manage-subjects",
+        to: "/admin/manage-academics",
       },
       {
         label: "Generated Papers",

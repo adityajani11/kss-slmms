@@ -102,15 +102,31 @@ export default function StaffForm({ onClose, onSuccess, existingData }) {
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         {[
-          { label: "Username", name: "username", type: "text" },
-          { label: "Full Name", name: "fullName", type: "text" },
-          { label: "Email", name: "email", type: "email" },
-          { label: "Contact Number", name: "contactNumber", type: "text" },
+          {
+            label: "Username",
+            name: "username",
+            type: "text",
+            maxLength: "40",
+          },
+          {
+            label: "Full Name",
+            name: "fullName",
+            type: "text",
+            maxLength: "50",
+          },
+          { label: "Email", name: "email", type: "email", maxLength: "50" },
+          {
+            label: "Contact Number",
+            name: "contactNumber",
+            type: "text",
+            maxLength: "10",
+          },
           {
             label: "Password",
             name: "password",
             type: "password",
             hidden: existingData && existingData._id,
+            maxLength: "50",
           },
         ]
           .filter((f) => !f.hidden)
@@ -124,6 +140,7 @@ export default function StaffForm({ onClose, onSuccess, existingData }) {
                 name={field.name}
                 placeholder={`Enter ${field.label}`}
                 value={staffData[field.name]}
+                maxLength={field.maxLength}
                 onChange={handleChange}
                 className="w-full mt-2 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
               />
@@ -151,6 +168,7 @@ export default function StaffForm({ onClose, onSuccess, existingData }) {
             value={staffData.notes}
             onChange={handleChange}
             rows={3}
+            maxLength={300}
             className="w-full mt-2 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
           />
         </div>

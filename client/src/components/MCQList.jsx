@@ -1,8 +1,7 @@
-import React, { useMemo } from "react";
-import { Image, Select } from "antd";
+import React from "react";
+import Loader from "./Loader";
 import MCQCard from "./MCQCard";
-
-const { Option } = Select;
+import { Image } from "antd";
 
 export default function MCQList({
   mcqs,
@@ -11,159 +10,168 @@ export default function MCQList({
   onDeleted,
   preview,
   setPreview,
-  standards = [],
-  categories = [],
-  subjects = [],
+
+  // Filters passed from parent
   selectedFilters,
   setSelectedFilters,
-  searchQuery = "",
-  setSearchQuery = () => {},
+  standards = [],
+  subjects = [],
+  categories = [],
+  searchQuery,
+  setSearchQuery,
+
   selectedForPaper = new Set(),
   toggleSelectForPaper = () => {},
-  allowSelection = false, // when both standard & subject selected
+  allowSelection = false,
   selectedStandard = null,
   selectedSubject = null,
 }) {
-  // Filter logic (runs only when needed)
-  const filteredMCQs = useMemo(() => {
-    return mcqs.filter((mcq) => {
-      // Text-based search (Gujarati supported)
-      const qText = mcq.question?.text?.toLowerCase() || "";
-      const explanation = mcq.explanation?.toLowerCase() || "";
-      const optionsText = mcq.options
-        .map((o) => o.label?.toLowerCase() || "")
-        .join(" ");
+  // ---------------------------
+  // ALWAYS VISIBLE FILTER BAR
+  // ---------------------------
+  const FiltersBar = (
+    <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+      {/* Standard */}
+      <select
+        className="border p-2 rounded"
+        value={selectedFilters.standard || ""}
+        onChange={(e) =>
+          setSelectedFilters((p) => ({
+            ...p,
+            standard: e.target.value || null,
+          }))
+        }
+      >
+        {standards.map((s) => (
+          <option key={s._id} value={s._id}>
+            Standard {s.standard}
+          </option>
+        ))}
+      </select>
 
-      const search = searchQuery.toLowerCase().trim();
+      {/* Subject */}
+      <select
+        className="border p-2 rounded"
+        value={selectedFilters.subject || ""}
+        onChange={(e) =>
+          setSelectedFilters((p) => ({
+            ...p,
+            subject: e.target.value || null,
+          }))
+        }
+      >
+        {subjects.map((s) => (
+          <option key={s._id} value={s._id}>
+            {s.name}
+          </option>
+        ))}
+      </select>
 
-      const matchesSearch =
-        search === "" ||
-        qText.includes(search) ||
-        explanation.includes(search) ||
-        optionsText.includes(search);
+      {/* Category */}
+      <select
+        className="border p-2 rounded"
+        value={selectedFilters.category || ""}
+        onChange={(e) =>
+          setSelectedFilters((p) => ({
+            ...p,
+            category: e.target.value || null,
+          }))
+        }
+      >
+        <option value="">All Categories</option>
+        {categories.map((c) => (
+          <option key={c._id} value={c._id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
 
-      const matchesStandard =
-        !selectedFilters.standard ||
-        mcq.standardId?._id === selectedFilters.standard;
-
-      const matchesCategory =
-        !selectedFilters.category ||
-        mcq.categoryId?._id === selectedFilters.category;
-
-      const matchesSubject =
-        !selectedFilters.subject ||
-        mcq.subjectId?._id === selectedFilters.subject;
-
-      return (
-        matchesSearch && matchesStandard && matchesCategory && matchesSubject
-      );
-    });
-  }, [mcqs, selectedFilters, searchQuery]);
-
-  return (
-    <div>
-      {/* SEARCH BAR */}
+      {/* Search */}
       <input
         type="text"
+        className="border p-2 rounded"
+        placeholder="Search MCQ..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="Search questions or options..."
-        className="w-full md:w-1/2 px-3 py-2 border rounded mb-4 outline-none focus:ring focus:border-blue-500"
       />
-      {/* FILTER BAR */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        {/* Standard Filter */}
-        <Select
-          allowClear
-          placeholder="Filter Standard"
-          style={{ width: 200 }}
-          value={selectedFilters.standard || undefined}
-          onChange={(v) =>
-            setSelectedFilters((p) => ({ ...p, standard: v || null }))
-          }
-        >
-          {standards.map((s) => (
-            <Option key={s._id} value={s._id}>
-              Standard {s.standard}
-            </Option>
-          ))}
-        </Select>
+    </div>
+  );
 
-        {/* Category Filter */}
-        <Select
-          allowClear
-          placeholder="Filter Category"
-          style={{ width: 200 }}
-          value={selectedFilters.category || undefined}
-          onChange={(v) =>
-            setSelectedFilters((p) => ({ ...p, category: v || null }))
-          }
-        >
-          {categories.map((c) => (
-            <Option key={c._id} value={c._id}>
-              {c.name}
-            </Option>
-          ))}
-        </Select>
+  // ---------------------------
+  // LOADING
+  // ---------------------------
+  if (loading) {
+    return (
+      <>
+        {FiltersBar}
+        <div className="flex justify-center py-10">
+          <Loader />
+        </div>
+      </>
+    );
+  }
 
-        {/* Subject Filter */}
-        <Select
-          allowClear
-          placeholder="Filter Subject"
-          style={{ width: 200 }}
-          value={selectedFilters.subject || undefined}
-          onChange={(v) =>
-            setSelectedFilters((p) => ({ ...p, subject: v || null }))
-          }
+  // ---------------------------
+  // EMPTY STATE (filters must remain)
+  // ---------------------------
+  if (!mcqs || mcqs.length === 0) {
+    return (
+      <>
+        {FiltersBar}
+        <div className="text-center py-10 text-gray-600 text-lg">
+          No MCQs found
+        </div>
+
+        {/* Needed for preview group (hidden unless clicked) */}
+        <Image.PreviewGroup
+          preview={{
+            visible: preview.visible,
+            onVisibleChange: (vis) =>
+              setPreview((p) => ({ ...p, visible: vis })),
+            zIndex: 999,
+          }}
         >
-          {subjects.map((s) => (
-            <Option key={s._id} value={s._id}>
-              {s.name}
-            </Option>
-          ))}
-        </Select>
+          <Image src={preview.src} style={{ display: "none" }} />
+        </Image.PreviewGroup>
+      </>
+    );
+  }
+
+  // ---------------------------
+  // NORMAL LIST
+  // ---------------------------
+  return (
+    <>
+      {FiltersBar}
+
+      {/* MCQ Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {mcqs.map((mcq) => (
+          <MCQCard
+            key={mcq._id}
+            mcq={mcq}
+            onEdit={onEdit}
+            onDeleted={onDeleted}
+            setPreview={setPreview}
+            isSelectedForPaper={selectedForPaper.has(mcq._id)}
+            toggleSelectForPaper={toggleSelectForPaper}
+            allowSelection={allowSelection}
+            selectedStandard={selectedStandard}
+            selectedSubject={selectedSubject}
+          />
+        ))}
       </div>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <div
-          id="mcq-print-area"
-          className="grid grid-cols-1 md:grid-cols-2 gap-2"
-        >
-          {filteredMCQs.map((mcq) => (
-            <MCQCard
-              key={mcq._id}
-              mcq={mcq}
-              onEdit={() => onEdit(mcq)}
-              onDeleted={onDeleted}
-              setPreview={setPreview}
-              isSelectedForPaper={selectedForPaper.has(mcq._id)}
-              toggleSelectForPaper={() => toggleSelectForPaper(mcq._id)}
-              allowSelection={allowSelection}
-              selectedStandard={selectedStandard}
-              selectedSubject={selectedSubject}
-            />
-          ))}
-
-          {filteredMCQs.length === 0 && (
-            <p className="text-center text-gray-500 col-span-full py-6">
-              No MCQs match selected filters.
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* GLOBAL IMAGE PREVIEW */}
+      {/* Global Image Preview Group */}
       <Image.PreviewGroup
         preview={{
           visible: preview.visible,
           onVisibleChange: (vis) => setPreview((p) => ({ ...p, visible: vis })),
-          zIndex: 9999,
+          zIndex: 999,
         }}
       >
         <Image src={preview.src} style={{ display: "none" }} />
       </Image.PreviewGroup>
-    </div>
+    </>
   );
 }

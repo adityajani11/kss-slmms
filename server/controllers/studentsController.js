@@ -1,19 +1,53 @@
 const Student = require("../models/Student");
 const Admin = require("../models/Admin");
+const Standard = require("../models/Standard");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { parsePagination } = require("../utils/pagination");
 const { parseInt: _p } = Number;
 
-// Helper: parse pagination
-const parsePagination = (req) => {
-  const page = Math.max(1, parseInt(req.query.page || "1", 10));
-  const limit = Math.min(
-    200,
-    Math.max(1, parseInt(req.query.limit || "20", 10))
-  );
-  const skip = (page - 1) * limit;
-  return { page, limit, skip };
+// Helper to build filters from query
+const buildFilters = async (q) => {
+  const filter = {};
+
+  // -----------------------------
+  // 1. StandardId handling:
+  // If user sends "9", "10" etc. → convert to number → find Standard → get _id
+  // -----------------------------
+  if (q.standardId) {
+    const stdNum = Number(q.standardId);
+    if (!isNaN(stdNum)) {
+      const std = await Standard.findOne({ standard: stdNum }).select("_id");
+      if (std) {
+        filter.standardId = std._id;
+      } else {
+        // No matching standard → ensure NO match in results
+        filter.standardId = null;
+      }
+    }
+  }
+
+  if (q.city) filter.city = new RegExp(q.city, "i");
+  if (q.district) filter.district = new RegExp(q.district, "i");
+  if (q.category) filter.category = q.category;
+  if (q.gender) filter.gender = q.gender;
+  if (q.cast) filter.cast = new RegExp(q.cast, "i");
+  if (q.schoolName) filter.schoolName = new RegExp(q.schoolName, "i");
+  if (!q.includeDisabled) filter.disabled = { $ne: true };
+
+  const hasSpecificFieldSearch = q.city || q.district || q.cast || q.schoolName;
+
+  // General search only if not using field-specific filters
+  if (q.search && !hasSpecificFieldSearch) {
+    const txt = q.search.trim();
+    filter.$or = [
+      { fullName: new RegExp(txt, "i") },
+      { username: new RegExp(txt, "i") },
+    ];
+  }
+
+  return filter;
 };
 
 exports.create = async (req, res) => {
@@ -175,32 +209,26 @@ exports.login = async (req, res) => {
   }
 };
 
+// Display student API
 exports.list = async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req);
-    const q = {};
+    const q = await buildFilters(req.query);
 
-    // Filters
-    if (req.query.standardId) q.standardId = req.query.standardId;
-    if (req.query.city) q.city = new RegExp(req.query.city, "i");
-    if (req.query.district) q.district = new RegExp(req.query.district, "i");
-    if (req.query.category) q.category = req.query.category;
-    if (req.query.stream) q.stream = req.query.stream;
-    if (!req.query.includeDisabled) q.disabled = { $ne: true };
-
-    // Fetch data
+    // Run two queries in parallel: paged items and total count
     const [items, total] = await Promise.all([
       Student.find(q)
         .populate("standardId", "standard")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       Student.countDocuments(q),
     ]);
 
     return res.status(200).json({
       success: true,
-      data: { items, total, page },
+      data: { items, total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (err) {
     console.error("Error listing students:", err);
@@ -209,6 +237,102 @@ exports.list = async (req, res) => {
       message: "An error occurred while fetching student records.",
       error: err.message,
     });
+  }
+};
+
+// Export student endpoint: supports format=csv or format=json
+exports.export = async (req, res) => {
+  try {
+    const format = (req.query.format || "csv").toLowerCase();
+    const q = buildFilters(req.query);
+
+    // Use cursor to avoid loading everything in memory for very large sets
+    const cursor = Student.find(q)
+      .populate("standardId", "standard")
+      .sort({ createdAt: -1 })
+      .lean()
+      .cursor();
+
+    if (format === "csv") {
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="students.csv"'
+      );
+
+      // write CSV header
+      const header = [
+        "#",
+        "Full Name",
+        "Username",
+        "City",
+        "District",
+        "School Name",
+        "Standard",
+        "Stream",
+        "Gender",
+        "Cast",
+        "Category",
+        "Contact Number",
+        "WhatsApp Number",
+        "Registered On",
+      ];
+      res.write(header.join(",") + "\n");
+
+      let index = 0;
+      for await (const s of cursor) {
+        index++;
+        const row = [
+          index,
+          '"' + (s.fullName || "").replace(/"/g, '""') + '"',
+          '"' + (s.username || "").replace(/"/g, '""') + '"',
+          '"' + (s.city || "").replace(/"/g, '""') + '"',
+          '"' + (s.district || "").replace(/"/g, '""') + '"',
+          '"' + (s.schoolName || "").replace(/"/g, '""') + '"',
+          '"' + ((s.standardId && s.standardId.standard) || "") + '"',
+          '"' + (s.stream || "") + '"',
+          '"' + (s.gender || "") + '"',
+          '"' + (s.cast || "") + '"',
+          '"' + (s.category || "") + '"',
+          '"' + (s.contactNumber || "") + '"',
+          '"' + (s.whatsappNumber || "") + '"',
+          '"' +
+            (s.createdAt ? new Date(s.createdAt).toLocaleString() : "") +
+            '"',
+        ];
+        res.write(row.join(",") + "\n");
+      }
+
+      return res.end();
+    }
+
+    // JSON streaming: send array start, then items, then end
+    if (format === "json") {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader(
+        "Content-Disposition",
+        'attachment; filename="students.json"'
+      );
+
+      res.write("[");
+      let first = true;
+      for await (const s of cursor) {
+        if (!first) res.write(",");
+        res.write(JSON.stringify(s));
+        first = false;
+      }
+      res.write("]");
+      return res.end();
+    }
+
+    return res
+      .status(400)
+      .json({ success: false, message: "Unsupported export format" });
+  } catch (err) {
+    console.error("Export error:", err);
+    return res
+      .status(500)
+      .json({ success: false, message: "Export failed", error: err.message });
   }
 };
 

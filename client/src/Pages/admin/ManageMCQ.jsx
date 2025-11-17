@@ -39,7 +39,6 @@ export default function ManageMCQ() {
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState("select");
   const [mcqs, setMcqs] = useState([]);
-  const [filteredMCQs, setFilteredMCQs] = useState([]);
   const [loadingMCQs, setLoadingMCQs] = useState(false);
   const [loadingExport, setLoadingExport] = useState(false);
   const [preview, setPreview] = useState({ visible: false, src: "" });
@@ -51,6 +50,10 @@ export default function ManageMCQ() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedForPaper, setSelectedForPaper] = useState(new Set());
   const [generateModalVisible, setGenerateModalVisible] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(30);
+  const [totalItems, setTotalItems] = useState(0);
+
   const [generateForm] = Form.useForm();
 
   const base = import.meta.env.VITE_API_BASE_URL || "";
@@ -60,9 +63,19 @@ export default function ManageMCQ() {
       const fetchMCQs = async () => {
         try {
           setLoadingMCQs(true);
-          const res = await axios.get(`${base}/mcqs`);
+          const res = await axios.get(`${base}/mcqs`, {
+            params: {
+              page,
+              limit,
+              standardId: selectedFilters.standard || undefined,
+              subjectId: selectedFilters.subject || undefined,
+              categoryId: selectedFilters.category || undefined,
+              search: searchQuery || undefined,
+            },
+          });
+
           setMcqs(res.data.data || []);
-          setFilteredMCQs(res.data.data || []);
+          setTotalItems(res.data.totalItems || 0);
         } catch (err) {
           message.error("Failed to load MCQs");
         } finally {
@@ -71,7 +84,7 @@ export default function ManageMCQ() {
       };
       fetchMCQs();
     }
-  }, [view, base]);
+  }, [view, page, limit, searchQuery, selectedFilters, base]);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -81,9 +94,21 @@ export default function ManageMCQ() {
           axios.get(`${base}/categories`),
           axios.get(`${base}/subjects`),
         ]);
-        setStandards(std?.data?.data || []);
-        setCategories(cat?.data?.data || []);
-        setSubjects(sub?.data?.data || []);
+
+        const stdList = std?.data?.data || [];
+        const catList = cat?.data?.data || [];
+        const subList = sub?.data?.data || [];
+
+        setStandards(stdList);
+        setCategories(catList);
+        setSubjects(subList);
+
+        // AUTO SELECT FIRST STANDARD + SUBJECT
+        setSelectedFilters((prev) => ({
+          ...prev,
+          standard: stdList[0]?._id || null,
+          subject: subList[0]?._id || null,
+        }));
       } catch (err) {
         message.error("Failed to load dropdowns");
       }
@@ -92,37 +117,9 @@ export default function ManageMCQ() {
   }, [base]);
 
   useEffect(() => {
-    let filtered = [...mcqs];
-
-    if (selectedFilters.standard) {
-      filtered = filtered.filter(
-        (m) => m.standardId?._id === selectedFilters.standard
-      );
-    }
-
-    if (selectedFilters.category) {
-      filtered = filtered.filter(
-        (m) => m.categoryId?._id === selectedFilters.category
-      );
-    }
-
-    if (selectedFilters.subject) {
-      filtered = filtered.filter(
-        (m) => m.subjectId?._id === selectedFilters.subject
-      );
-    }
-
-    setFilteredMCQs(filtered);
-    // Clear selection if an MCQ no longer in filtered list
-    setSelectedForPaper((prev) => {
-      const next = new Set(
-        Array.from(prev).filter((id) =>
-          filtered.some((f) => String(f._id) === String(id))
-        )
-      );
-      return next;
-    });
-  }, [selectedFilters, mcqs]);
+    setPage(1);
+    setSelectedForPaper(new Set());
+  }, [selectedFilters.standard, selectedFilters.subject]);
 
   const uploadProps = {
     beforeUpload: (file) => {
@@ -135,11 +132,6 @@ export default function ManageMCQ() {
   };
 
   const handleDownloadPDF = async () => {
-    if (filteredMCQs.length === 0) {
-      Swal.fire("No MCQs to export!", "Please adjust your filters.", "info");
-      return;
-    }
-
     const { value: pdfHeading } = await Swal.fire({
       title: "Download PDF",
       input: "text",
@@ -155,13 +147,35 @@ export default function ManageMCQ() {
     if (pdfHeading === undefined) return;
 
     setLoadingExport(true);
+
     try {
+      // 1️⃣ Fetch ALL filtered MCQs from server, not just current page
+      const res = await axios.get(`${base}/mcqs`, {
+        params: {
+          page: 1,
+          limit: 5000, // Large number so we get everything
+          standardId: selectedFilters.standard || undefined,
+          subjectId: selectedFilters.subject || undefined,
+          categoryId: selectedFilters.category || undefined,
+          search: searchQuery || undefined,
+        },
+      });
+
+      const allMCQs = res.data.data || [];
+
+      if (allMCQs.length === 0) {
+        Swal.fire("No MCQs!", "No MCQs match your filters.", "info");
+        return;
+      }
+
+      // 2️⃣ Now send all MCQs to PDF API
       const response = await axios.post(
         `${base}/mcqs/pdf`,
-        { mcqs: filteredMCQs, pdfHeading: pdfHeading || "" },
+        { mcqs: allMCQs, pdfHeading: pdfHeading || "" },
         { responseType: "blob" }
       );
 
+      // 3️⃣ Download file
       const blob = new Blob([response.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -179,7 +193,7 @@ export default function ManageMCQ() {
       });
     } catch (err) {
       console.error(err);
-      Swal.fire("Error", "Unable to download filtered PDF", "error");
+      Swal.fire("Error", "Unable to download PDF", "error");
     } finally {
       setLoadingExport(false);
     }
@@ -220,6 +234,36 @@ export default function ManageMCQ() {
       next.delete(deletedId);
       return next;
     });
+  };
+
+  const selectAllFiltered = async () => {
+    if (!selectedFilters.standard || !selectedFilters.subject) {
+      message.info("Please select Standard and Subject first.");
+      return;
+    }
+
+    try {
+      const res = await axios.get(`${base}/mcqs`, {
+        params: {
+          page: 1,
+          limit: 2000, // Large number so we get all
+          standardId: selectedFilters.standard,
+          subjectId: selectedFilters.subject,
+          categoryId: selectedFilters.category || undefined,
+          search: searchQuery || undefined,
+        },
+      });
+
+      const allIds = res.data.data.map((m) => m._id).slice(0, 120);
+
+      setSelectedForPaper(new Set(allIds));
+
+      if (allIds.length === 120) {
+        message.info("Only first 120 MCQs selected.");
+      }
+    } catch (err) {
+      message.error("Failed to select MCQs.");
+    }
   };
 
   const handleSubmit = async (values) => {
@@ -301,19 +345,6 @@ export default function ManageMCQ() {
   };
 
   const clearSelectedForPaper = () => setSelectedForPaper(new Set());
-
-  const selectAllFiltered = () => {
-    // only allow when both standard & subject are selected
-    if (!selectedFilters.standard || !selectedFilters.subject) {
-      message.info("Please select Standard and Subject to select MCQs.");
-      return;
-    }
-    const ids = filteredMCQs.map((m) => m._id).slice(0, 120);
-    setSelectedForPaper(new Set(ids));
-    if (filteredMCQs.length > 120) {
-      message.info("Only first 120 filtered MCQs were selected.");
-    }
-  };
 
   // Generate paper submission (modal values include: pdfHeading, includeBoth)
   const handleGeneratePaperSubmit = async (values) => {
@@ -437,6 +468,16 @@ export default function ManageMCQ() {
     }
   };
 
+  useEffect(() => {
+    if (view === "manage") {
+      form.setFieldsValue({
+        standardId: selectedFilters.standard,
+        subjectId: selectedFilters.subject,
+        categoryId: undefined, // User will choose
+      });
+    }
+  }, [view, selectedFilters, form]);
+
   // === Selection Cards (Top-left aligned + wider) ===
   if (view === "select") {
     return (
@@ -504,6 +545,10 @@ export default function ManageMCQ() {
 
   // === View MCQs ===
   if (view === "view") {
+    const totalPages = Math.ceil(totalItems / limit);
+    const showingFrom = (page - 1) * limit + 1;
+    const showingTo = Math.min(page * limit, totalItems);
+
     const bothFiltersSelected =
       !!selectedFilters.standard && !!selectedFilters.subject;
 
@@ -520,7 +565,7 @@ export default function ManageMCQ() {
 
             <Button
               onClick={selectAllFiltered}
-              disabled={!bothFiltersSelected || filteredMCQs.length === 0}
+              disabled={!bothFiltersSelected || mcqs.length === 0}
             >
               Select MCQs (up to 120)
             </Button>
@@ -547,7 +592,7 @@ export default function ManageMCQ() {
         {/* MCQ List */}
         <div className="mx-auto">
           <MCQList
-            mcqs={filteredMCQs}
+            mcqs={mcqs}
             loading={loadingMCQs}
             onEdit={handleEdit}
             onDeleted={handleDeleted}
@@ -566,6 +611,62 @@ export default function ManageMCQ() {
             selectedStandard={selectedFilters.standard}
             selectedSubject={selectedFilters.subject}
           />
+        </div>
+
+        {/* PAGINATION BAR */}
+        <div className="flex items-center justify-between mt-6">
+          {/* Showing info */}
+          <div className="text-gray-700">
+            Showing {showingFrom} - {showingTo} of {totalItems}
+          </div>
+
+          {/* Page numbers */}
+          <div className="flex items-center gap-1">
+            {/* Prev */}
+            <Button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Prev
+            </Button>
+
+            {/* Page Numbers */}
+            {Array.from({ length: totalPages || 1 }).map((_, idx) => {
+              const num = idx + 1;
+              if (
+                num === 1 ||
+                num === totalPages ||
+                Math.abs(num - page) <= 2
+              ) {
+                return (
+                  <Button
+                    key={num}
+                    type={num === page ? "primary" : "default"}
+                    onClick={() => setPage(num)}
+                  >
+                    {num}
+                  </Button>
+                );
+              }
+
+              if (num === page - 3 || num === page + 3) {
+                return (
+                  <span key={num} className="px-2">
+                    ...
+                  </span>
+                );
+              }
+              return null;
+            })}
+
+            {/* Next */}
+            <Button
+              onClick={() => setPage((p) => (p < totalPages ? p + 1 : p))}
+              disabled={page === totalPages}
+            >
+              Next
+            </Button>
+          </div>
         </div>
 
         {/* Modal */}

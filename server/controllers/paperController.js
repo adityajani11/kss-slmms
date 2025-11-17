@@ -85,34 +85,34 @@ exports.generatePaper = async (req, res) => {
 
     await browser.close();
 
-    // --- Create folder for student ---
-    const baseDir = path.join(__dirname, "../uploads/materials");
-    const studentDir = path.join(baseDir, studentId.toString());
+    // // --- Create folder for student ---
+    // const baseDir = path.join(__dirname, "../uploads/materials");
+    // const studentDir = path.join(baseDir, studentId.toString());
 
-    if (!fs.existsSync(studentDir)) {
-      fs.mkdirSync(studentDir, { recursive: true });
-    }
+    // if (!fs.existsSync(studentDir)) {
+    //   fs.mkdirSync(studentDir, { recursive: true });
+    // }
 
-    // --- Save generated PDF ---
-    const fileName = `StudentPaper_${Date.now()}.pdf`;
-    const filePath = path.join(studentDir, fileName);
-    fs.writeFileSync(filePath, pdfBuffer);
+    // // --- Save generated PDF ---
+    // const fileName = `StudentPaper_${Date.now()}.pdf`;
+    // const filePath = path.join(studentDir, fileName);
+    // fs.writeFileSync(filePath, pdfBuffer);
 
-    // --- Save relative path for DB (for static serving) ---
-    const relativePath = `uploads/materials/${studentId}/${fileName}`;
+    // // --- Save relative path for DB (for static serving) ---
+    // const relativePath = `uploads/materials/${studentId}/${fileName}`;
 
-    // --- Create Material record ---
-    const materialDoc = await Material.create({
-      title: fileName,
-      type: "PDF",
-      path: relativePath,
-      uploadedBy: studentId,
-      uploadedByModel: "student",
-      standardId,
-      subjectId,
-      categoryId: mcqDocs[0]?.categoryId?._id || undefined,
-      file: { fileId: null },
-    });
+    // // --- Create Material record ---
+    // const materialDoc = await Material.create({
+    //   title: fileName,
+    //   type: "PDF",
+    //   path: relativePath,
+    //   uploadedBy: studentId,
+    //   uploadedByModel: "student",
+    //   standardId,
+    //   subjectId,
+    //   categoryId: mcqDocs[0]?.categoryId?._id || undefined,
+    //   file: { fileId: null },
+    // });
 
     // --- Subjects from MCQs ---
     const subjectIds = [
@@ -138,10 +138,11 @@ exports.generatePaper = async (req, res) => {
       includeExplanations: false,
       totalMarks: paperItems.length,
       items: paperItems,
-      generatedPdf: {
-        fileId: materialDoc._id,
-        at: new Date(),
-      },
+      generatedPdf: null,
+      // generatedPdf: {
+      //   fileId: materialDoc._id,
+      //   at: new Date(),
+      // },
     });
 
     return res.status(200).json({
