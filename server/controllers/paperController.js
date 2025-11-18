@@ -265,7 +265,7 @@ exports.downloadPaper = async (req, res) => {
 
     res.send(pdfBuffer);
   } catch (err) {
-    console.error("❌ Paper Download Error:", err);
+    console.error("Paper Download Error:", err);
     res.status(500).json({
       success: false,
       error: err.message || "Failed to prepare or download paper.",
@@ -392,30 +392,30 @@ exports.generateAdminPaper = async (req, res) => {
 
     await browser.close();
 
-    // -------- SAVE PDF FILE --------
-    const adminDir = path.join(__dirname, "../uploads/admin_papers");
-    if (!fs.existsSync(adminDir)) {
-      fs.mkdirSync(adminDir, { recursive: true });
-    }
+    // // -------- SAVE PDF FILE --------
+    // const adminDir = path.join(__dirname, "../uploads/admin_papers");
+    // if (!fs.existsSync(adminDir)) {
+    //   fs.mkdirSync(adminDir, { recursive: true });
+    // }
 
-    const fileName = `AdminPaper_${Date.now()}.pdf`;
-    const filePath = path.join(adminDir, fileName);
-    fs.writeFileSync(filePath, pdfBuffer);
+    // const fileName = `AdminPaper_${Date.now()}.pdf`;
+    // const filePath = path.join(adminDir, fileName);
+    // fs.writeFileSync(filePath, pdfBuffer);
 
-    const relativePath = `uploads/admin_papers/${fileName}`;
+    // const relativePath = `uploads/admin_papers/${fileName}`;
 
-    // -------- CREATE MATERIAL ENTRY --------
-    const materialDoc = await Material.create({
-      title: title.trim(),
-      type: "PDF",
-      path: relativePath,
-      uploadedBy: userId,
-      uploadedByModel: "staffadmin",
-      standardId,
-      subjectId: primarySubject,
-      categoryId: mcqDocs[0]?.categoryId?._id || undefined,
-      file: { fileId: null },
-    });
+    // // -------- CREATE MATERIAL ENTRY --------
+    // const materialDoc = await Material.create({
+    //   title: title.trim(),
+    //   type: "PDF",
+    //   path: relativePath,
+    //   uploadedBy: userId,
+    //   uploadedByModel: "staffadmin",
+    //   standardId,
+    //   subjectId: primarySubject,
+    //   categoryId: mcqDocs[0]?.categoryId?._id || undefined,
+    //   file: { fileId: null },
+    // });
 
     // -------- PAPER ITEMS --------
     const items = mcqDocs.map((m, i) => ({
@@ -436,16 +436,17 @@ exports.generateAdminPaper = async (req, res) => {
       includeExplanations: !!includeExplanations,
       totalMarks: items.length,
       items,
-      generatedPdf: {
-        fileId: materialDoc._id,
-        at: new Date(),
-      },
+      generatedPdf: null,
+      // generatedPdf: {
+      //   fileId: materialDoc._id,
+      //   at: new Date(),
+      // },
     });
 
     // -------- RETURN PDF TO FRONTEND --------
     res.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${fileName}"`,
+      "Content-Disposition": `attachment; filename="${pdfHeading}"`,
     });
 
     return res.send(pdfBuffer);

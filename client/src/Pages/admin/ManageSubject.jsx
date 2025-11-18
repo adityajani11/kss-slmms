@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { Trash2, Power, PlusCircle } from "lucide-react";
+import { Trash2, PlusCircle } from "lucide-react";
 import Loader from "../../components/Loader";
+import { deleteWithPassword } from "../../utils/deleteWithPassword";
 
 export default function ManageSubjects() {
   const [subjects, setSubjects] = useState([]);
@@ -42,6 +43,7 @@ export default function ManageSubjects() {
     try {
       setLoading(true);
       const res = await axios.post(`${base}/subjects`, { name });
+
       if (res.data.success) {
         Swal.fire("Added!", `Subject "${name}" added successfully`, "success");
         setNewSubject("");
@@ -61,64 +63,14 @@ export default function ManageSubjects() {
     }
   };
 
-  // Toggle active/inactive (with confirmation)
-  const handleToggleActive = async (id, isActive) => {
-    const confirm = await Swal.fire({
-      title: "Are you sure?",
-      text: `You are about to ${
-        isActive ? "deactivate" : "activate"
-      } this subject.`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: isActive ? "#d97706" : "#16a34a",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: `Yes, ${isActive ? "Deactivate" : "Activate"}`,
+  // Delete subject with admin password verification
+  const handleDeleteSubject = (id) => {
+    deleteWithPassword({
+      base,
+      deleteUrl: `${base}/subjects/${id}`,
+      fetchCallback: fetchSubjects,
+      itemName: "Subject",
     });
-
-    if (confirm.isConfirmed) {
-      try {
-        setLoading(true);
-        await axios.put(`${base}/subjects/${id}`);
-        Swal.fire(
-          "Updated!",
-          `Subject ${isActive ? "deactivated" : "activated"} successfully`,
-          "success"
-        );
-        fetchSubjects();
-      } catch (error) {
-        console.error(error);
-        Swal.fire("Error", "Failed to update subject status", "error");
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  // Delete subject
-  const handleDeleteSubject = async (id) => {
-    const confirm = await Swal.fire({
-      title: "Are you sure?",
-      text: "This will permanently delete the subject!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete it!",
-    });
-
-    if (confirm.isConfirmed) {
-      try {
-        setLoading(true);
-        await axios.delete(`${base}/subjects/${id}`);
-        Swal.fire("Deleted!", "Subject has been deleted", "success");
-        fetchSubjects();
-      } catch (error) {
-        console.error(error);
-        Swal.fire("Error", "Failed to delete subject", "error");
-      } finally {
-        setLoading(false);
-      }
-    }
   };
 
   return (
@@ -167,43 +119,17 @@ export default function ManageSubjects() {
               key={subj._id}
               className="bg-white border rounded-xl p-5 shadow-md hover:shadow-lg transition transform hover:-translate-y-1"
             >
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  {subj.name}
-                </h2>
-                <span
-                  className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                    subj.isActive
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {subj.isActive ? "Active" : "Inactive"}
-                </span>
-              </div>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                {subj.name}
+              </h2>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 mt-4">
-                <button
-                  onClick={() => handleToggleActive(subj._id, subj.isActive)}
-                  className={`flex justify-center items-center gap-1 px-2.5 py-1.5 text-sm rounded-md font-medium transition w-full sm:w-auto ${
-                    subj.isActive
-                      ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                      : "bg-green-100 text-green-700 hover:bg-green-200"
-                  } disabled:opacity-60 `}
-                >
-                  <Power size={15} />
-                  {subj.isActive ? "Deactivate" : "Activate"}
-                </button>
-
-                <button
-                  onClick={() => handleDeleteSubject(subj._id)}
-                  className="flex justify-center items-center gap-1 px-2.5 py-1.5 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 font-medium transition w-full sm:w-auto disabled:opacity-60"
-                >
-                  <Trash2 size={15} />
-                  Delete
-                </button>
-              </div>
+              <button
+                onClick={() => handleDeleteSubject(subj._id)}
+                className="flex justify-center items-center gap-1 px-2.5 py-1.5 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 font-medium transition w-full"
+              >
+                <Trash2 size={15} />
+                Delete
+              </button>
             </div>
           ))}
         </div>

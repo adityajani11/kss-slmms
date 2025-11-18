@@ -1,10 +1,9 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const ctrl = require('../controllers/subjectController');
+const ctrl = require("../controllers/subjectController");
 
-router.post('/', ctrl.create);
-router.get('/', ctrl.list);
-router.put('/:id', ctrl.toggleActive);
-router.delete('/:id', ctrl.delete);
+router.post("/", ctrl.create);
+router.get("/", ctrl.list);
+router.delete("/:id", ctrl.delete);
 
 module.exports = router;

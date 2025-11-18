@@ -188,7 +188,7 @@ export default function ManageStudent() {
     try {
       setLoading(true);
       const verifyRes = await axios.post(
-        `${base}/students/verify-student-delete-password`,
+        `${base}/admin/verify-additional-password`,
         { password }
       );
       if (!verifyRes.data.success) {

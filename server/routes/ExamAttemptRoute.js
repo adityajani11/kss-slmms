@@ -19,4 +19,6 @@ router.delete(
   examAttemptController.deletePaperAttempts
 );
 
+router.get("/attempt/:attemptId", examAttemptController.getExamAttemptDetail);
+
 module.exports = router;

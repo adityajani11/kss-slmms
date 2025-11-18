@@ -34,13 +34,11 @@ exports.create = async (req, res) => {
     const doc = new Standard({ standard });
     await doc.save();
 
-    return res
-      .status(201)
-      .json({
-        success: true,
-        message: "Standard added successfully",
-        data: doc,
-      });
+    return res.status(201).json({
+      success: true,
+      message: "Standard added successfully",
+      data: doc,
+    });
   } catch (err) {
     console.error("Error creating standard:", err);
     return res
@@ -51,11 +49,7 @@ exports.create = async (req, res) => {
 
 exports.list = async (req, res) => {
   try {
-    // If ?includeDisabled=true, return all; otherwise only active ones
-    const includeDisabled = req.query.includeDisabled === "true";
-    const query = includeDisabled ? {} : { isActive: true };
-
-    const standards = await Standard.find(query).sort({ standard: 1 });
+    const standards = await Standard.find().sort({ standard: 1 });
 
     if (standards.length === 0) {
       return res
@@ -75,53 +69,7 @@ exports.list = async (req, res) => {
   }
 };
 
-// Toggle Standard Active/Inactive
-
-exports.toggleActive = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Validate ID format
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid standard ID" });
-    }
-
-    const standard = await Standard.findById(id);
-    if (!standard) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Standard not found" });
-    }
-
-    // Toggle active flag
-    standard.isActive = !standard.isActive;
-    await standard.save();
-
-    return res.status(200).json({
-      success: true,
-      message: `Standard ${standard.standard} has been ${
-        standard.isActive ? "activated" : "deactivated"
-      } successfully.`,
-      data: {
-        _id: standard._id,
-        standard: standard.standard,
-        isActive: standard.isActive,
-      },
-    });
-  } catch (err) {
-    console.error("Error toggling standard:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to toggle standard status",
-      error: err.message,
-    });
-  }
-};
-
 // Hard Delete Standard
-
 exports.hardDelete = async (req, res) => {
   try {
     const { id } = req.params;

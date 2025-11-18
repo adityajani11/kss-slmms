@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { Trash2, Power, PlusCircle } from "lucide-react";
+import { Trash2, PlusCircle } from "lucide-react";
 import Loader from "../../components/Loader";
+import { deleteWithPassword } from "../../utils/deleteWithPassword";
 
 export default function ManageCategory() {
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState("");
   const [loading, setLoading] = useState(true);
-  const [togglingId, setTogglingId] = useState(null);
   const base = import.meta.env.VITE_API_BASE_URL;
 
-  // Fetch categories (including inactive)
+  // Fetch categories
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${base}/categories?includeDisabled=true`);
+      const res = await axios.get(`${base}/categories`);
       const data = res.data?.data || [];
       setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -63,61 +63,14 @@ export default function ManageCategory() {
     }
   };
 
-  // Toggle active/inactive
-  const handleToggleActive = async (id, isActive) => {
-    const confirm = await Swal.fire({
-      title: `${isActive ? "Deactivate" : "Activate"} Category?`,
-      text: `Are you sure you want to ${
-        isActive ? "deactivate" : "activate"
-      } this category?`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: isActive ? "#d97706" : "#16a34a",
-      cancelButtonColor: "#6b7280",
-      confirmButtonText: `Yes, ${isActive ? "Deactivate" : "Activate"}`,
+  // Hard delete with admin additional password verification
+  const handleDeleteCategory = (id) => {
+    deleteWithPassword({
+      base,
+      deleteUrl: `${base}/categories/${id}/hard`,
+      fetchCallback: fetchCategories,
+      itemName: "Category",
     });
-
-    if (confirm.isConfirmed) {
-      try {
-        setTogglingId(id);
-        await axios.put(`${base}/categories/${id}`);
-        Swal.fire(
-          "Updated!",
-          `Category ${isActive ? "deactivated" : "activated"} successfully`,
-          "success"
-        );
-        fetchCategories();
-      } catch (error) {
-        console.error(error);
-        Swal.fire("Error", "Failed to update category status", "error");
-      } finally {
-        setTogglingId(null);
-      }
-    }
-  };
-
-  // Hard delete
-  const handleDeleteCategory = async (id) => {
-    const confirm = await Swal.fire({
-      title: "Are you sure?",
-      text: "This will permanently delete the category!",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, delete it!",
-    });
-
-    if (confirm.isConfirmed) {
-      try {
-        await axios.delete(`${base}/categories/${id}/hard`);
-        Swal.fire("Deleted!", "Category has been deleted", "success");
-        fetchCategories();
-      } catch (error) {
-        console.error(error);
-        Swal.fire("Error", "Failed to delete category", "error");
-      }
-    }
   };
 
   return (
@@ -165,50 +118,17 @@ export default function ManageCategory() {
               key={cat._id}
               className="bg-white border rounded-xl p-5 shadow-md hover:shadow-lg transition transform hover:-translate-y-1"
             >
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-lg font-semibold text-gray-800 capitalize">
-                  {cat.name}
-                </h2>
-                <span
-                  className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                    cat.isActive
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {cat.isActive ? "Active" : "Inactive"}
-                </span>
-              </div>
+              <h2 className="text-lg font-semibold text-gray-800 capitalize mb-4">
+                {cat.name}
+              </h2>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 mt-4">
-                <button
-                  onClick={() => handleToggleActive(cat._id, cat.isActive)}
-                  className={`flex justify-center items-center gap-1 px-2.5 py-1.5 text-sm rounded-md font-medium transition w-full sm:w-auto ${
-                    cat.isActive
-                      ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                      : "bg-green-100 text-green-700 hover:bg-green-200"
-                  }`}
-                  disabled={togglingId === cat._id}
-                >
-                  {togglingId === cat._id ? (
-                    <Loader size={16} />
-                  ) : (
-                    <>
-                      <Power size={14} />
-                      {cat.isActive ? "Deactivate" : "Activate"}
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => handleDeleteCategory(cat._id)}
-                  className="flex justify-center items-center gap-1 px-2.5 py-1.5 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 font-medium transition w-full sm:w-auto"
-                >
-                  <Trash2 size={14} />
-                  Delete
-                </button>
-              </div>
+              <button
+                onClick={() => handleDeleteCategory(cat._id)}
+                className="flex justify-center items-center gap-1 px-2.5 py-1.5 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 font-medium transition w-full"
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
             </div>
           ))}
         </div>

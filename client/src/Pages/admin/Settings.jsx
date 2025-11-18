@@ -74,10 +74,11 @@ export default function Settings() {
           onClick={() => setShowStudentModal(true)}
         >
           <h3 className="text-lg font-semibold">
-            Change Student Delete Password
+            Change Student Delete & Academic Management Password
           </h3>
           <p className="text-gray-600 text-sm mt-2">
-            Update security password used for student deletion.
+            Update security password used for student deletion & academic data
+            deletion.
           </p>
         </div>
 

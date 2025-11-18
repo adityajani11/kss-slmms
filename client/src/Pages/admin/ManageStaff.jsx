@@ -101,23 +101,97 @@ export default function ManageStaff() {
   };
 
   const handleDelete = async (id) => {
+    // 1. Initial confirmation
     const confirm = await Swal.fire({
       title: "Are you sure?",
-      text: "This action will permanently delete the staff record.",
+      text: "This action will permanently delete the staff record. You will need to enter your administrative password to proceed.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Yes, delete it!",
       cancelButtonText: "Cancel",
       confirmButtonColor: "#e3342f",
     });
+
     if (confirm.isConfirmed) {
-      try {
-        await axios.delete(`${base}/staff/${id}`);
-        Swal.fire("Deleted!", "Staff record has been removed.", "success");
-        fetchStaff();
-      } catch (err) {
-        console.error(err);
-        Swal.fire("Error", "Failed to delete staff.", "error");
+      // 2. Prompt for password
+      const { value: password } = await Swal.fire({
+        title: "Enter Password",
+        input: "password",
+        inputLabel: "Administrative Password",
+        inputPlaceholder: "Enter your password to authorize deletion",
+        inputAttributes: {
+          maxlength: 50,
+          autocapitalize: "off",
+          autocorrect: "off",
+        },
+        icon: "info",
+        showCancelButton: true,
+        confirmButtonText: "Verify & Delete",
+        cancelButtonText: "Cancel",
+        reverseButtons: true,
+        customClass: {
+          popup: "rounded-2xl shadow-lg",
+        },
+        inputValidator: (value) => {
+          if (!value) {
+            return "You need to enter a password to proceed!";
+          }
+        },
+      });
+
+      if (password) {
+        try {
+          // 3. Verify the password
+          Swal.fire({
+            title: "Verifying Password...",
+            allowOutsideClick: false,
+            didOpen: () => {
+              Swal.showLoading();
+            },
+          });
+
+          // Staff password check API
+          const verifyRes = await axios.post(
+            `${base}/admin/verify-additional-password`,
+            { password }
+          );
+
+          if (verifyRes.data?.success) {
+            // Password verified successfully, proceed to deletion
+            Swal.fire({
+              title: "Deleting Staff...",
+              allowOutsideClick: false,
+              didOpen: () => {
+                Swal.showLoading();
+              },
+            });
+
+            // 4. Delete the staff record
+            await axios.delete(`${base}/staff/${id}`);
+
+            Swal.fire("Deleted!", "Staff record has been removed.", "success");
+            fetchStaff();
+          } else {
+            // Should not happen if API throws error for failure, but as a fallback
+            Swal.fire(
+              "Verification Failed",
+              "Incorrect password provided.",
+              "error"
+            );
+          }
+        } catch (err) {
+          console.error("Deletion/Verification error:", err);
+
+          // Handle specific API error message if available, otherwise general error
+          const errorMsg =
+            err.response?.data?.message ||
+            "Failed to verify password or delete staff.";
+
+          Swal.fire("Error", errorMsg, "error");
+        }
+      } else if (password === "") {
+        // User closed the second prompt or didn't enter anything
+        Swal.fire("Cancelled", "Staff deletion cancelled.", "info");
       }
     }
   };

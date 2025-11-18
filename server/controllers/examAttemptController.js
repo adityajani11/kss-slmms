@@ -1,6 +1,8 @@
 const ExamAttempt = require("../models/ExamAttempt");
 const Paper = require("../models/Paper");
 const MCQ = require("../models/MCQ");
+const { buildHTML } = require("../utils/buildHTML");
+const puppeteer = require("puppeteer");
 
 /* ======================================================
    POST /api/v1/examattempts/submit
@@ -158,5 +160,48 @@ exports.deletePaperAttempts = async (req, res) => {
       success: false,
       message: "Server error while deleting paper attempts",
     });
+  }
+};
+
+// GET ALL EXAM ATTEMPT DETAIL
+exports.getExamAttemptDetail = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+
+    const attempt = await ExamAttempt.findById(attemptId)
+      .populate("paperId", "title totalMarks")
+      .lean();
+
+    if (!attempt) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Attempt not found" });
+    }
+
+    // Fetch MCQ snapshots
+    const mcqIds = attempt.responses.map((r) => r.mcqId);
+    const mcqs = await MCQ.find({ _id: { $in: mcqIds } }).lean();
+
+    // Merge MCQ details + student responses
+    const merged = attempt.responses.map((r) => {
+      const mcq = mcqs.find((m) => m._id.toString() === r.mcqId.toString());
+      return {
+        ...mcq,
+        selectedIndex: r.selectedIndex,
+        correct: r.correct,
+        marksAwarded: r.marksAwarded,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        attempt,
+        mcqs: merged,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Error fetching exam attempt detail:", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

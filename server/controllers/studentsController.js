@@ -534,35 +534,3 @@ exports.hardDelete = async (req, res) => {
     });
   }
 };
-
-// API For verifying student delete password
-exports.verifyStudentDeletePassword = async (req, res) => {
-  try {
-    const { password } = req.body;
-
-    if (!password) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Password required" });
-    }
-
-    // Assuming single admin OR logged-in admin id from JWT
-    const admin = await Admin.findOne(); // If single admin exists
-
-    if (!admin || !admin.studentDeletePassword) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Delete password not set by admin" });
-    }
-
-    const isMatch = await bcrypt.compare(password, admin.studentDeletePassword);
-
-    if (!isMatch) {
-      return res.json({ success: false, error: "Invalid password" });
-    }
-
-    return res.json({ success: true });
-  } catch (error) {
-    return res.status(500).json({ success: false, error: "Server error" });
-  }
-};
