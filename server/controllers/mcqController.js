@@ -122,7 +122,7 @@ exports.createMCQ = async (req, res) => {
       },
       options: parsedOptions,
       explanation: typeof explanation === "string" ? explanation.trim() : "",
-      createdBy: req.user?._id || "000000000000000000000000",
+      createdBy: req.user?._id || null,
     });
 
     return res.status(201).json({ success: true, data: mcq });
@@ -630,6 +630,7 @@ function renderKaTeXInline(text) {
       return katex.renderToString(math.trim(), {
         throwOnError: false,
         displayMode: false,
+        strict: false,
       });
     } catch {
       return match;

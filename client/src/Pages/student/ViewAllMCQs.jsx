@@ -33,6 +33,7 @@ function renderMathToNodes(text = "") {
         const html = katex.renderToString(inlineMatch[1], {
           throwOnError: false,
           displayMode: false,
+          strict: false,
         });
         return <span key={idx} dangerouslySetInnerHTML={{ __html: html }} />;
       } else {

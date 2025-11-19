@@ -62,7 +62,11 @@ export default function TestHistory() {
       Swal.fire("Deleted!", "All attempts removed.", "success");
       loadHistory();
     } catch {
-      Swal.fire("Error", "Failed to delete attempts.", "error");
+      Swal.fire(
+        "Error",
+        "Failed to delete attempts. If you are getting same error, please try to delete particular attempt",
+        "error"
+      );
     }
   };
 

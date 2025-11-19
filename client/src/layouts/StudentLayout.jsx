@@ -41,7 +41,7 @@ export default function StudentLayout() {
             <Menu size={26} />
           </button>
           <h1 className="text-lg font-semibold text-gray-800">
-            Student Dashboard
+            Student Workspace
           </h1>
         </header>
 

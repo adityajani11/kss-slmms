@@ -148,42 +148,47 @@ export default function MyMaterial() {
           {filtered.map((m) => (
             <div
               key={m._id}
-              className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 p-5 border border-gray-100"
+              className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col"
             >
-              <div className="flex flex-col h-full">
-                <div className="mb-3">
-                  <h2 className="text-lg font-semibold text-gray-800 line-clamp-1">
-                    {m.title}
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">
+              {/* Card Header */}
+              <div className="p-5 border-b">
+                <h2 className="text-lg font-semibold text-gray-800 line-clamp-1">
+                  {m.title}
+                </h2>
+
+                <div className="mt-2 space-y-1">
+                  <p className="text-sm text-gray-600">
                     <span className="font-medium">Subject:</span>{" "}
                     {m.subjectId?.name || "N/A"}
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-600">
                     <span className="font-medium">Category:</span>{" "}
                     {m.categoryId?.name || "N/A"}
                   </p>
                 </div>
+              </div>
 
-                <div className="mt-auto flex justify-between items-center">
-                  <p className="text-xs text-gray-400">
-                    Uploaded on{" "}
-                    {new Date(m.createdAt).toLocaleDateString("en-IN")}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleView(m)}
-                      className="flex items-center gap-1 text-sm text-green-600 hover:text-green-800 font-medium"
-                    >
-                      <Eye size={18} /> View
-                    </button>
-                    <button
-                      onClick={() => handleDownload(m)}
-                      className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      <Download size={18} /> Download
-                    </button>
-                  </div>
+              {/* Footer Section */}
+              <div className="p-5 mt-auto flex flex-col gap-3">
+                <p className="text-xs text-gray-500">
+                  📅 Uploaded on{" "}
+                  {new Date(m.createdAt).toLocaleDateString("en-IN")}
+                </p>
+
+                <div className="flex items-center justify-between mt-1">
+                  <button
+                    onClick={() => handleView(m)}
+                    className="flex items-center gap-1 text-sm bg-green-50 text-green-700 px-3 py-1.5 rounded-xl hover:bg-green-100 transition"
+                  >
+                    <Eye size={16} /> View
+                  </button>
+
+                  <button
+                    onClick={() => handleDownload(m)}
+                    className="flex items-center gap-1 text-sm bg-blue-50 text-blue-700 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition"
+                  >
+                    <Download size={16} /> Download
+                  </button>
                 </div>
               </div>
             </div>

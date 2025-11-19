@@ -41,7 +41,7 @@ export default function AdminLayout() {
             <Menu size={26} />
           </button>
           <h1 className="text-lg font-semibold text-gray-800">
-            Admin Dashboard
+            Administration Console
           </h1>
         </header>
 

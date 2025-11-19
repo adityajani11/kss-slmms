@@ -1,6 +1,7 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import Logo from "../assets/logo-trans.png";
 import {
   LayoutDashboard,
   Users,
@@ -162,11 +163,15 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
         <X size={22} />
       </button>
 
-      <h2 className="text-xl font-bold text-indigo-700 mb-6 border-b pb-3 mt-6 md:mt-0">
-        {panelType.charAt(0).toUpperCase() + panelType.slice(1)} Panel
-      </h2>
+      {/* Logo + School Name */}
+      <div className="flex flex-col items-center gap-2 pt-2 border-b pb-4">
+        <img src={Logo} alt="Logo" className="w-14 h-14 object-contain" />
+        <p className="text-md font-semibold text-gray-600 text-center">
+          Krishna School Group
+        </p>
+      </div>
 
-      <nav className="flex flex-col gap-2">
+      <nav className="flex flex-col gap-2 pt-4">
         {items.map((item, idx) =>
           item.to ? (
             <NavLink

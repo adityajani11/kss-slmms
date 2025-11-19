@@ -55,6 +55,7 @@ const renderSafeKatex = (content = "") => {
           throwOnError: false,
           displayMode: true,
           trust: true,
+          strict: false,
         })}</span>`
     );
 
@@ -66,6 +67,7 @@ const renderSafeKatex = (content = "") => {
           throwOnError: false,
           displayMode: false,
           trust: true,
+          strict: false,
         })}</span>`
     );
 
@@ -462,7 +464,7 @@ export default function MyGeneratedPapers() {
   const handleDeletePaper = async (paper) => {
     const confirm = await Swal.fire({
       title: "🗑️ Delete Paper?",
-      text: `Are you sure you want to delete "${paper.title}"? This cannot be undone.`,
+      text: `Are you sure you want to delete "${paper.title}"? This will remove all Exam Attempts too. This cannot be undone.`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Yes, Delete",

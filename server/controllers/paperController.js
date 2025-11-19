@@ -907,6 +907,8 @@ exports.deletePaper = async (req, res) => {
 
     await Paper.deleteOne({ _id: paperId });
 
+    await ExamAttempt.deleteMany({ paperId });
+
     return res.json({
       success: true,
       message: "Paper deleted successfully",

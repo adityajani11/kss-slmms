@@ -31,6 +31,7 @@ export default function ExamResultPreview() {
         return katex.renderToString(content.trim(), {
           displayMode: isDisplay,
           throwOnError: false,
+          strict: false,
         });
       } catch {
         return match;

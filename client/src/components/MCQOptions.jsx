@@ -1,6 +1,7 @@
 import React from "react";
 import { Radio, Space, Input, Upload, Button } from "antd";
 import { PlusOutlined, UploadOutlined } from "@ant-design/icons";
+import MathEditor from "./MathEditor";
 
 export default function MCQOptions({ options, setOptions, uploadProps, base }) {
   const handleOptionChange = (index, field, value) => {
@@ -8,6 +9,7 @@ export default function MCQOptions({ options, setOptions, uploadProps, base }) {
     copy[index][field] = value;
     setOptions(copy);
   };
+  const [deletingIndex, setDeletingIndex] = React.useState(null);
 
   const selectedCorrect = options.findIndex((o) => o.isCorrect);
 
@@ -30,24 +32,27 @@ export default function MCQOptions({ options, setOptions, uploadProps, base }) {
           {options.map((opt, index) => (
             <div
               key={index}
-              className={`flex flex-col sm:flex-row items-start gap-3 p-3 rounded-lg border ${
-                selectedCorrect === index
-                  ? "border-green-500 bg-green-100"
-                  : "border-gray-200"
-              }`}
+              className={`
+    flex flex-col sm:flex-row items-start gap-3 p-3 rounded-lg border transition-all duration-200
+    ${
+      selectedCorrect === index
+        ? "border-green-500 bg-green-100"
+        : "border-gray-200"
+    }
+    ${deletingIndex === index ? "opacity-0 scale-95" : "opacity-100 scale-100"}
+  `}
             >
               <div className="flex items-center gap-3 w-full">
                 <Radio value={index} className="flex-shrink-0" />
 
-                {/* Label */}
-                <Input
-                  placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                  value={opt.label}
-                  onChange={(e) =>
-                    handleOptionChange(index, "label", e.target.value)
-                  }
-                  className="flex-grow"
-                />
+                {/* Label with MathEditor*/}
+                <div className="flex-grow">
+                  <MathEditor
+                    value={opt.label}
+                    onChange={(val) => handleOptionChange(index, "label", val)}
+                    placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                  />
+                </div>
 
                 {/* Existing image preview (if editing) */}
                 {opt.existingImage && (
@@ -59,6 +64,34 @@ export default function MCQOptions({ options, setOptions, uploadProps, base }) {
                     alt="Existing"
                     className="w-14 h-14 rounded object-cover ml-2"
                   />
+                )}
+
+                {/* Remove Button */}
+                {options.length > 2 && (
+                  <Button
+                    danger
+                    size="small"
+                    onClick={() => {
+                      setDeletingIndex(index);
+
+                      setTimeout(() => {
+                        const filtered = options.filter((_, i) => i !== index);
+                        const isRemovedCorrect = options[index].isCorrect;
+
+                        if (isRemovedCorrect) {
+                          setOptions(
+                            filtered.map((o) => ({ ...o, isCorrect: false }))
+                          );
+                        } else {
+                          setOptions(filtered);
+                        }
+
+                        setDeletingIndex(null);
+                      }, 200); // matches duration-200
+                    }}
+                  >
+                    Remove
+                  </Button>
                 )}
               </div>
 

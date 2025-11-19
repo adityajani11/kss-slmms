@@ -212,6 +212,7 @@ function renderKaTeXInline(text) {
       return katex.renderToString(math.trim(), {
         throwOnError: false,
         displayMode: false,
+        strict: false,
       });
     } catch {
       return match;

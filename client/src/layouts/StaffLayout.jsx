@@ -40,9 +40,7 @@ export default function StaffLayout() {
           >
             <Menu size={26} />
           </button>
-          <h1 className="text-lg font-semibold text-gray-800">
-            Staff Dashboard
-          </h1>
+          <h1 className="text-lg font-semibold text-gray-800">Staff Console</h1>
         </header>
 
         {/* Page content */}
