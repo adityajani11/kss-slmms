@@ -27,6 +27,18 @@ function buildHTML(mcqs, pdfHeading = "", includeAnswers, includeExplanations) {
         src: url(data:font/truetype;charset=utf-8;base64,${nilkanthFontBase64}) format('truetype');
       }
 
+      @page {
+       margin: 20mm;
+      }
+
+      .footer {
+        position: fixed;
+        bottom: 10px;
+        right: 20px;
+        font-size: 12px;
+        color: #444;
+      }
+
       body {
         font-family: Arial, sans-serif;
         line-height: 1.6;
@@ -138,6 +150,9 @@ function buildHTML(mcqs, pdfHeading = "", includeAnswers, includeExplanations) {
     </div>
 
     <div class="columns">
+    <div class="footer">
+      Page <span class="pageNumber"></span> / <span class="totalPages"></span>
+    </div>
   `;
 
   let content = "";

@@ -1,16 +1,6 @@
 const Standard = require("../models/Standard");
 const mongoose = require("mongoose");
 
-const parsePagination = (req) => {
-  const page = Math.max(1, parseInt(req.query.page || "1", 10));
-  const limit = Math.min(
-    200,
-    Math.max(1, parseInt(req.query.limit || "20", 10))
-  );
-  const skip = (page - 1) * limit;
-  return { page, limit, skip };
-};
-
 exports.create = async (req, res) => {
   try {
     const { standard } = req.body;

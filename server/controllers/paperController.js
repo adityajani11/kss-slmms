@@ -80,7 +80,19 @@ exports.generatePaper = async (req, res) => {
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "40px", bottom: "40px", left: "40px", right: "40px" },
+      displayHeaderFooter: true,
+      headerTemplate: `<div></div>`,
+      footerTemplate: `
+        <div style="width:100%; font-size:10px; text-align:right; padding-right:20px;">
+          Page <span class="pageNumber"></span> / <span class="totalPages"></span>
+        </div>
+      `,
+      margin: {
+        top: "40px",
+        bottom: "40px",
+        left: "35px",
+        right: "35px",
+      },
     });
 
     await browser.close();
@@ -250,7 +262,19 @@ exports.downloadPaper = async (req, res) => {
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "40px", bottom: "40px", left: "40px", right: "40px" },
+      displayHeaderFooter: true,
+      headerTemplate: `<div></div>`,
+      footerTemplate: `
+        <div style="width:100%; font-size:10px; text-align:right; padding-right:20px;">
+          Page <span class="pageNumber"></span> / <span class="totalPages"></span>
+        </div>
+      `,
+      margin: {
+        top: "40px",
+        bottom: "40px",
+        left: "35px",
+        right: "35px",
+      },
     });
 
     await browser.close();
@@ -382,11 +406,18 @@ exports.generateAdminPaper = async (req, res) => {
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: `<div></div>`,
+      footerTemplate: `
+        <div style="width:100%; font-size:10px; text-align:right; padding-right:20px;">
+          Page <span class="pageNumber"></span> / <span class="totalPages"></span>
+        </div>
+      `,
       margin: {
         top: "40px",
         bottom: "40px",
-        left: "40px",
-        right: "40px",
+        left: "35px",
+        right: "35px",
       },
     });
 
@@ -829,7 +860,19 @@ exports.downloadGeneratedPaper = async (req, res) => {
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "40px", bottom: "40px", left: "40px", right: "40px" },
+      displayHeaderFooter: true,
+      headerTemplate: `<div></div>`,
+      footerTemplate: `
+        <div style="width:100%; font-size:10px; text-align:right; padding-right:20px;">
+          Page <span class="pageNumber"></span> / <span class="totalPages"></span>
+        </div>
+      `,
+      margin: {
+        top: "40px",
+        bottom: "40px",
+        left: "35px",
+        right: "35px",
+      },
     });
 
     await browser.close();

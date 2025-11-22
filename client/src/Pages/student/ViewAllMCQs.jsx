@@ -9,6 +9,9 @@ import { ChevronUp, ChevronDown } from "lucide-react";
 const { Option } = Select;
 const { Search } = Input;
 
+// Set limit for MCQs
+const maxMcqsLimit = 120;
+
 /* ---------- Utility: Render text with KaTeX parsing (pure) ---------- */
 function renderMathToNodes(text = "") {
   if (!text) return null;
@@ -89,6 +92,11 @@ export default function ViewAllMCQs() {
   const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const [mcqsReady, setMcqsReady] = useState(false);
 
+  const [randomCount, setRandomCount] = useState(null);
+  const [showRandomDropdown, setShowRandomDropdown] = useState(false);
+
+  const [randomLoading, setRandomLoading] = useState(false);
+
   const initializedRef = useRef(false);
   const searchDebounceRef = useRef(null);
   const fetchAbortControllerRef = useRef(null);
@@ -97,7 +105,8 @@ export default function ViewAllMCQs() {
   const fileBase = base.replace("/api/v1", "");
   const user = JSON.parse(localStorage.getItem("user"));
 
-  const isLimitReached = selectedMCQs.length >= 120;
+  const isOverLimit = selectedMCQs.length > maxMcqsLimit;
+  const isAtLimit = selectedMCQs.length === maxMcqsLimit;
 
   /** =========================
    * INITIAL LOAD
@@ -238,36 +247,72 @@ export default function ViewAllMCQs() {
     return `${fileBase}/${imgPath.replace(/^\/+/, "")}`;
   };
 
+  // Choose random MCQs (of given MCQ limit)
+  const handleRandomPick = async (count) => {
+    setShowRandomDropdown(false);
+
+    try {
+      setRandomLoading(true);
+
+      const res = await axios.get(
+        `${base}/mcqs/random/by-standard/${user.standardId}`,
+        {
+          params: {
+            subjectId: selectedSubject,
+            categoryId: selectedCategory,
+            q: searchTerm,
+            limit: count,
+          },
+        }
+      );
+
+      const data = res.data?.data || [];
+      const randomIds = data.map((m) => m._id);
+
+      // ✅ Apply hard limit
+      const cappedIds = randomIds.slice(0, maxMcqsLimit);
+
+      if (data.length < count) {
+        await Swal.fire(
+          "ℹ️ Limited MCQs",
+          `Only ${data.length} MCQs available. You can continue.`,
+          "info"
+        );
+      }
+
+      if (randomIds.length > maxMcqsLimit) {
+        await Swal.fire(
+          "⚠️ Limit Applied",
+          `Max allowed is ${maxMcqsLimit} MCQs. Selected only ${maxMcqsLimit}.`,
+          "warning"
+        );
+      }
+
+      // ✅ Save capped selection
+      setSelectedMCQs(cappedIds);
+    } catch (err) {
+      console.error(err);
+      Swal.fire("❌ Error", "Failed to fetch random MCQs.", "error");
+    } finally {
+      setRandomLoading(false);
+    }
+  };
+
   const toggleMCQSelection = (mcqId) => {
     setSelectedMCQs((prev) => {
       if (prev.includes(mcqId)) {
         return prev.filter((id) => id !== mcqId);
       }
-      if (prev.length >= 120) {
-        Swal.fire("⚠️ Limit Reached", "Max 120 MCQs allowed.", "warning");
+      if (prev.length >= maxMcqsLimit) {
+        Swal.fire(
+          "⚠️ Limit Reached",
+          `Max ${maxMcqsLimit} MCQs allowed.`,
+          "warning"
+        );
         return prev;
       }
       return [...prev, mcqId];
     });
-  };
-
-  const handleToggleSelectAll = () => {
-    const visibleIds = mcqs.map((m) => m._id);
-    const allSelected = visibleIds.every((id) => selectedMCQs.includes(id));
-
-    if (allSelected) {
-      setSelectedMCQs((prev) => prev.filter((id) => !visibleIds.includes(id)));
-    } else {
-      const available = visibleIds.filter((id) => !selectedMCQs.includes(id));
-      const spaceLeft = 120 - selectedMCQs.length;
-      const toAdd = available.slice(0, spaceLeft);
-
-      if (toAdd.length === 0) {
-        Swal.fire("⚠️ Limit Reached", "Already selected 120 MCQs.", "warning");
-        return;
-      }
-      setSelectedMCQs((prev) => [...prev, ...toAdd]);
-    }
   };
 
   /** =========================
@@ -505,7 +550,7 @@ export default function ViewAllMCQs() {
                   <Checkbox
                     checked={isSelected}
                     onChange={() => toggleMCQSelection(mcq._id)}
-                    disabled={!isSelected && isLimitReached}
+                    disabled={!isSelected && isAtLimit}
                     className="absolute top-3 right-3"
                   />
 
@@ -604,11 +649,9 @@ export default function ViewAllMCQs() {
           <div className="fixed bottom-3 left-1/2 -translate-x-1/2 w-[95%] sm:w-auto bg-gradient-to-r from-blue-50/60 via-white/60 to-blue-100/50 backdrop-blur-lg border border-blue-300/40 shadow-2xl px-4 py-3 rounded-2xl">
             <div className="flex justify-between items-center">
               <span
-                className={`font-medium ${
-                  isLimitReached ? "text-red-600" : ""
-                }`}
+                className={`font-medium ${isOverLimit ? "text-red-600" : ""}`}
               >
-                🧩 {selectedMCQs.length}/120 MCQs Selected
+                🧩 {selectedMCQs.length}/{maxMcqsLimit} MCQs Selected
               </span>
 
               <button
@@ -623,9 +666,9 @@ export default function ViewAllMCQs() {
               </button>
             </div>
 
-            {isLimitReached && (
+            {isOverLimit && (
               <p className="text-center text-sm text-red-600 mt-1 animate-pulse">
-                ⚠️ Max 120 MCQs
+                ⚠️ Max {maxMcqsLimit} MCQs
               </p>
             )}
 
@@ -637,25 +680,45 @@ export default function ViewAllMCQs() {
               }`}
             >
               <div className="flex flex-wrap justify-center sm:justify-start gap-3">
+                {showRandomDropdown && (
+                  <div className="mt-3 flex justify-center sm:justify-start">
+                    <Select
+                      value={randomCount}
+                      placeholder="Select count"
+                      autoFocus
+                      style={{ width: 120 }}
+                      onChange={(val) => {
+                        setRandomCount(val);
+                        handleRandomPick(val);
+                      }}
+                      onBlur={() =>
+                        setTimeout(() => setShowRandomDropdown(false), 200)
+                      }
+                    >
+                      <Option value={25}>25 MCQs</Option>
+                      <Option value={40}>40 MCQs</Option>
+                      <Option value={50}>50 MCQs</Option>
+                      <Option value={80}>80 MCQs</Option>
+                      <Option value={120}>120 MCQs</Option>
+                    </Select>
+                  </div>
+                )}
+
                 <button
-                  onClick={handleToggleSelectAll}
-                  disabled={isLimitReached}
-                  className={`px-4 py-2 rounded-lg font-semibold text-sm border shadow-sm ${
-                    isLimitReached
-                      ? "bg-gray-200 text-gray-400"
-                      : "bg-white/50 hover:bg-blue-100/60 text-blue-800 border-blue-200/40"
-                  }`}
+                  onClick={() => {
+                    setRandomCount(null);
+                    setShowRandomDropdown(true);
+                  }}
+                  className="px-4 py-2 rounded-lg font-semibold text-sm shadow-md bg-orange-500 hover:bg-orange-600 text-white"
                 >
-                  {mcqs.every((m) => selectedMCQs.includes(m._id))
-                    ? "❌ Deselect Page"
-                    : "Select Page"}
+                  🎲 Random Select
                 </button>
 
                 <button
                   onClick={handleDownloadPDF}
-                  disabled={isLimitReached || actionLoadingPdf}
+                  disabled={isOverLimit || actionLoadingPdf}
                   className={`px-4 py-2 rounded-lg font-semibold text-sm shadow-md ${
-                    isLimitReached
+                    isOverLimit
                       ? "bg-gray-300 text-gray-500"
                       : "bg-blue-600/90 hover:bg-blue-700 text-white"
                   }`}
@@ -672,10 +735,10 @@ export default function ViewAllMCQs() {
                 <button
                   onClick={handleSavePaper}
                   disabled={
-                    !selectedSubject || isLimitReached || actionLoadingSave
+                    !selectedSubject || isOverLimit || actionLoadingSave
                   }
                   className={`px-4 py-2 rounded-lg font-semibold text-sm shadow-md ${
-                    !selectedSubject || isLimitReached
+                    !selectedSubject || isOverLimit
                       ? "bg-gray-300 text-gray-500"
                       : "bg-purple-600/90 hover:bg-purple-700 text-white"
                   }`}

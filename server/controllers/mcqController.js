@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const puppeteer = require("puppeteer");
 const katex = require("katex");
+const mongoose = require("mongoose");
 
 // basic validation helper
 const ensureOneCorrect = (options) => {
@@ -399,6 +400,79 @@ exports.getByStandard = async (req, res) => {
   }
 };
 
+// Get random MCQs by Standard ID (Full Dataset)
+exports.getRandomByStandard = async (req, res) => {
+  try {
+    const { standardId } = req.params;
+    const { subjectId, categoryId, q, limit = 120, excludeIds } = req.query;
+
+    if (!standardId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "standardId required" });
+    }
+
+    const filter = {
+      standardId: new mongoose.Types.ObjectId(standardId),
+      deleted: { $ne: true },
+    };
+
+    if (subjectId) filter.subjectId = new mongoose.Types.ObjectId(subjectId);
+    if (categoryId) filter.categoryId = new mongoose.Types.ObjectId(categoryId);
+
+    if (q && q.trim() !== "") {
+      const regex = new RegExp(q.trim(), "i");
+      filter.$or = [
+        { "question.text": regex },
+        { "options.label": regex },
+        { explanation: regex },
+      ];
+    }
+
+    // Safe excludeIds parsing
+    let excludeList = [];
+    if (excludeIds) {
+      try {
+        excludeList =
+          typeof excludeIds === "string" ? JSON.parse(excludeIds) : excludeIds;
+      } catch {
+        excludeList = [];
+      }
+    }
+
+    if (excludeList.length > 0) {
+      filter._id = {
+        $nin: excludeList.map((id) => new mongoose.Types.ObjectId(id)),
+      };
+    }
+
+    // Random sample
+    const randomMcqs = await MCQ.aggregate([
+      { $match: filter },
+      { $sample: { size: Number(limit) } },
+    ]);
+
+    const ids = randomMcqs.map((m) => m._id);
+
+    // Preserve random order during populate
+    const docs = await MCQ.find({ _id: { $in: ids } })
+      .populate("subjectId", "name")
+      .populate("categoryId", "name")
+      .lean();
+
+    const map = new Map(docs.map((d) => [String(d._id), d]));
+    const populated = ids.map((id) => map.get(String(id))).filter(Boolean);
+
+    return res.json({
+      success: true,
+      data: populated,
+    });
+  } catch (err) {
+    console.error("Random MCQ fetch error:", err);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
 /* ---------- HELPER: HTML Builder ---------- */
 function buildHTML(mcqs, pdfHeading = "") {
   const katexCSS = fs.readFileSync(
@@ -687,6 +761,13 @@ exports.getFilteredMcqPDF = async (req, res) => {
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: `<div></div>`,
+      footerTemplate: `
+        <div style="width:100%; font-size:10px; text-align:right; padding-right:20px;">
+          Page <span class="pageNumber"></span> / <span class="totalPages"></span>
+        </div>
+      `,
       margin: {
         top: "40px",
         bottom: "40px",

@@ -54,6 +54,9 @@ export default function ManageMCQ() {
   const [limit, setLimit] = useState(30);
   const [totalItems, setTotalItems] = useState(0);
 
+  const [randomModalVisible, setRandomModalVisible] = useState(false);
+  const [randomCount, setRandomCount] = useState(null);
+
   const [generateForm] = Form.useForm();
 
   const base = import.meta.env.VITE_API_BASE_URL || "";
@@ -136,7 +139,7 @@ export default function ManageMCQ() {
       title: "Download PDF",
       input: "text",
       inputLabel: "Enter PDF Heading (leave blank if not needed)",
-      inputPlaceholder: "e.g. ધોરણ 10 - વિજ્ઞાન અધ્યાય 5",
+      inputPlaceholder: "e.g. ધોરણ 10 - વિજ્ઞાન",
       showCancelButton: true,
       confirmButtonText: "Download",
       cancelButtonText: "Cancel",
@@ -171,7 +174,7 @@ export default function ManageMCQ() {
       // 2️⃣ Now send all MCQs to PDF API
       const response = await axios.post(
         `${base}/mcqs/pdf`,
-        { mcqs: allMCQs, pdfHeading: pdfHeading || "" },
+        { mcqIds: allMCQs, pdfHeading: pdfHeading || "" },
         { responseType: "blob" }
       );
 
@@ -187,7 +190,7 @@ export default function ManageMCQ() {
       Swal.fire({
         icon: "success",
         title: "PDF Downloaded",
-        text: "Your filtered MCQs have been downloaded successfully!",
+        text: "Your MCQs have been downloaded successfully!",
         timer: 1800,
         showConfirmButton: false,
       });
@@ -263,6 +266,63 @@ export default function ManageMCQ() {
       }
     } catch (err) {
       message.error("Failed to select MCQs.");
+    }
+  };
+
+  const selectRandomMCQs = async () => {
+    if (!selectedFilters.standard || !selectedFilters.subject) {
+      await Swal.fire({
+        icon: "info",
+        title: "Select Filters",
+        text: "Please select Standard and Subject first.",
+      });
+      return;
+    }
+
+    if (!randomCount) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Missing Count",
+        text: "Please select how many MCQs you want.",
+      });
+      return;
+    }
+
+    if (randomCount > 120) {
+      await Swal.fire({
+        icon: "error",
+        title: "Limit Exceeded",
+        text: "You can select maximum 120 MCQs only.",
+      });
+      return;
+    }
+
+    try {
+      const res = await axios.get(
+        `${base}/mcqs/random/by-standard/${selectedFilters.standard}`,
+        {
+          params: {
+            subjectId: selectedFilters.subject,
+            categoryId: selectedFilters.category || undefined,
+            q: searchQuery || undefined,
+            limit: randomCount,
+          },
+        }
+      );
+
+      const newRandomIds = (res.data.data || []).map((m) => m._id);
+
+      // ✅ Replace all previous selections
+      setSelectedForPaper(new Set(newRandomIds));
+
+      setRandomModalVisible(false);
+    } catch (err) {
+      console.error(err);
+      await Swal.fire({
+        icon: "error",
+        title: "Failed",
+        text: "Failed to fetch random MCQs.",
+      });
     }
   };
 
@@ -570,6 +630,16 @@ export default function ManageMCQ() {
               Select MCQs (up to 120)
             </Button>
 
+            <Button
+              onClick={() => {
+                setSelectedForPaper(new Set());
+                setRandomModalVisible(true);
+              }}
+              disabled={!bothFiltersSelected || mcqs.length === 0}
+            >
+              Select Random MCQs
+            </Button>
+
             <Button onClick={() => setView("select")}>Back</Button>
 
             <Button
@@ -670,6 +740,45 @@ export default function ManageMCQ() {
         </div>
 
         {/* Modal */}
+        <Modal
+          title="Select Random MCQs"
+          open={randomModalVisible}
+          onCancel={() => setRandomModalVisible(false)}
+          footer={null}
+          centered
+        >
+          <div className="space-y-4">
+            <label className="block text-gray-600 text-sm">
+              How many MCQs?
+            </label>
+
+            <Select
+              value={randomCount}
+              onChange={(value) => setRandomCount(value)}
+              className="w-full"
+            >
+              <Select.Option value={25}>25 MCQs</Select.Option>
+              <Select.Option value={40}>40 MCQs</Select.Option>
+              <Select.Option value={50}>50 MCQs</Select.Option>
+              <Select.Option value={80}>80 MCQs</Select.Option>
+              <Select.Option value={120}>120 MCQs</Select.Option>
+            </Select>
+
+            <div className="text-right">
+              <Button
+                onClick={() => setRandomModalVisible(false)}
+                className="me-2"
+              >
+                Cancel
+              </Button>
+
+              <Button type="primary" onClick={selectRandomMCQs}>
+                Select
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
         <Modal
           title="Generate Paper (Admin)"
           open={generateModalVisible}

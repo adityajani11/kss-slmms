@@ -37,5 +37,6 @@ router.delete("/:id", ctrl.softDelete);
 router.post("/:id/restore", ctrl.restore);
 router.delete("/:id/hard", ctrl.hardDelete);
 router.get("/by-standard/:standardId", ctrl.getByStandard);
+router.get("/random/by-standard/:standardId", ctrl.getRandomByStandard);
 
 module.exports = router;
