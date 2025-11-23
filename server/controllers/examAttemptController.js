@@ -1,8 +1,6 @@
 const ExamAttempt = require("../models/ExamAttempt");
 const Paper = require("../models/Paper");
 const MCQ = require("../models/MCQ");
-const { buildHTML } = require("../utils/buildHTML");
-const puppeteer = require("puppeteer");
 
 /* ======================================================
    POST /api/v1/examattempts/submit
@@ -80,7 +78,7 @@ exports.submitExamAttempt = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("❌ Error submitting exam attempt:", err);
+    console.error("Error submitting exam attempt:", err);
     res
       .status(500)
       .json({ success: false, message: "Server error while submitting exam" });
@@ -106,7 +104,7 @@ exports.getExamHistory = async (req, res) => {
 
     res.json({ success: true, data: history });
   } catch (err) {
-    console.error("❌ Error fetching exam history:", err);
+    console.error("Error fetching exam history:", err);
     res
       .status(500)
       .json({ success: false, message: "Server error while fetching history" });
@@ -201,7 +199,7 @@ exports.getExamAttemptDetail = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("❌ Error fetching exam attempt detail:", err);
+    console.error("Error fetching exam attempt detail:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

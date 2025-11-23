@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
-const softDeletePlugin = require("./plugins/softDelete");
 
 const standardSchema = new Schema(
   {
@@ -8,7 +7,5 @@ const standardSchema = new Schema(
   },
   { timestamps: true }
 );
-
-standardSchema.plugin(softDeletePlugin);
 
 module.exports = mongoose.model("Standard", standardSchema);

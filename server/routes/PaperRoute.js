@@ -17,4 +17,3 @@ router.delete("/delete/:studentId/:paperId", ctrl.deletePaper);
 router.delete("/delete-generated-paper/:paperId", ctrl.deleteGeneratedPaper);
 
 module.exports = router;
-// 4 + 910;

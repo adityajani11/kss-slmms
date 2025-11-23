@@ -97,35 +97,6 @@ exports.generatePaper = async (req, res) => {
 
     await browser.close();
 
-    // // --- Create folder for student ---
-    // const baseDir = path.join(__dirname, "../uploads/materials");
-    // const studentDir = path.join(baseDir, studentId.toString());
-
-    // if (!fs.existsSync(studentDir)) {
-    //   fs.mkdirSync(studentDir, { recursive: true });
-    // }
-
-    // // --- Save generated PDF ---
-    // const fileName = `StudentPaper_${Date.now()}.pdf`;
-    // const filePath = path.join(studentDir, fileName);
-    // fs.writeFileSync(filePath, pdfBuffer);
-
-    // // --- Save relative path for DB (for static serving) ---
-    // const relativePath = `uploads/materials/${studentId}/${fileName}`;
-
-    // // --- Create Material record ---
-    // const materialDoc = await Material.create({
-    //   title: fileName,
-    //   type: "PDF",
-    //   path: relativePath,
-    //   uploadedBy: studentId,
-    //   uploadedByModel: "student",
-    //   standardId,
-    //   subjectId,
-    //   categoryId: mcqDocs[0]?.categoryId?._id || undefined,
-    //   file: { fileId: null },
-    // });
-
     // --- Subjects from MCQs ---
     const subjectIds = [
       ...new Set(mcqDocs.map((m) => m.subjectId?._id).filter(Boolean)),
@@ -151,10 +122,6 @@ exports.generatePaper = async (req, res) => {
       totalMarks: paperItems.length,
       items: paperItems,
       generatedPdf: null,
-      // generatedPdf: {
-      //   fileId: materialDoc._id,
-      //   at: new Date(),
-      // },
     });
 
     return res.status(200).json({
@@ -213,7 +180,7 @@ exports.downloadPaper = async (req, res) => {
 
     const includeAnswers = answers === "true";
 
-    // 🔍 Find paper
+    // Find paper
     const paper = await Paper.findOne({
       _id: paperId,
       createdBy: studentId,
@@ -227,7 +194,7 @@ exports.downloadPaper = async (req, res) => {
       });
     }
 
-    // 🧠 Fetch MCQs for this paper
+    // Fetch MCQs for this paper
     const paperDoc = await Paper.findById(paperId).populate({
       path: "items.mcqId",
       populate: { path: "subjectId categoryId" },
@@ -238,7 +205,7 @@ exports.downloadPaper = async (req, res) => {
     // If answers included, also include explanations
     const includeExp = includeAnswers;
 
-    // 🧩 Build dynamic HTML with KaTeX + Gujarati + filters
+    // Build dynamic HTML with KaTeX + Gujarati + filters
     const html = buildHTML(
       mcqs,
       paper.title || "Student Paper",
@@ -246,7 +213,7 @@ exports.downloadPaper = async (req, res) => {
       includeExp
     );
 
-    // 🧾 Generate PDF via Puppeteer
+    // Generate PDF via Puppeteer
     const browser = await puppeteer.launch({
       headless: "new",
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -279,7 +246,7 @@ exports.downloadPaper = async (req, res) => {
 
     await browser.close();
 
-    // 📨 Send PDF to client
+    // Send PDF to client
     res.set({
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${
@@ -423,31 +390,6 @@ exports.generateAdminPaper = async (req, res) => {
 
     await browser.close();
 
-    // // -------- SAVE PDF FILE --------
-    // const adminDir = path.join(__dirname, "../uploads/admin_papers");
-    // if (!fs.existsSync(adminDir)) {
-    //   fs.mkdirSync(adminDir, { recursive: true });
-    // }
-
-    // const fileName = `AdminPaper_${Date.now()}.pdf`;
-    // const filePath = path.join(adminDir, fileName);
-    // fs.writeFileSync(filePath, pdfBuffer);
-
-    // const relativePath = `uploads/admin_papers/${fileName}`;
-
-    // // -------- CREATE MATERIAL ENTRY --------
-    // const materialDoc = await Material.create({
-    //   title: title.trim(),
-    //   type: "PDF",
-    //   path: relativePath,
-    //   uploadedBy: userId,
-    //   uploadedByModel: "staffadmin",
-    //   standardId,
-    //   subjectId: primarySubject,
-    //   categoryId: mcqDocs[0]?.categoryId?._id || undefined,
-    //   file: { fileId: null },
-    // });
-
     // -------- PAPER ITEMS --------
     const items = mcqDocs.map((m, i) => ({
       mcqId: m._id,
@@ -468,10 +410,6 @@ exports.generateAdminPaper = async (req, res) => {
       totalMarks: items.length,
       items,
       generatedPdf: null,
-      // generatedPdf: {
-      //   fileId: materialDoc._id,
-      //   at: new Date(),
-      // },
     });
 
     // -------- RETURN PDF TO FRONTEND --------
@@ -513,7 +451,7 @@ exports.getPaperMcqs = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Paper not found" });
 
-    // ✅ Helper to normalize image paths (fixes Windows backslashes)
+    // Helper to normalize image paths (fixes Windows backslashes)
     const normalizeImage = (imgPath) => {
       if (!imgPath) return null;
       if (imgPath.startsWith("http")) return imgPath;
@@ -522,7 +460,7 @@ exports.getPaperMcqs = async (req, res) => {
         .replace(/^\/+/, ""); // remove leading slashes if any
     };
 
-    // ✅ Build MCQs with normalized image URLs
+    // Build MCQs with normalized image URLs
     const mcqs = paper.items
       .filter((item) => item.mcqId)
       .map((item) => {
@@ -553,7 +491,7 @@ exports.getPaperMcqs = async (req, res) => {
       data: mcqs,
     });
   } catch (err) {
-    console.error("❌ Error fetching paper MCQs:", err);
+    console.error("Error fetching paper MCQs:", err);
     return res.status(500).json({
       success: false,
       message: "Server error while fetching MCQs",

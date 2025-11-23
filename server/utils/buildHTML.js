@@ -98,8 +98,8 @@ function buildHTML(mcqs, pdfHeading = "", includeAnswers, includeExplanations) {
       }
 
       .divider {
-        width: 60%;
-        height: 2px;
+        width: 100%;
+        height: 1px;
         background: #222;
         margin: 8px auto 12px auto;
       }

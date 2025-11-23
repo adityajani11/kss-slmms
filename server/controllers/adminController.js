@@ -89,41 +89,6 @@ exports.updateContact = async (req, res) => {
   }
 };
 
-// Update Password
-exports.updatePassword = async (req, res) => {
-  try {
-    const { type, passwordHash } = req.body;
-
-    if (!type || !passwordHash)
-      return res.status(400).json({ success: false, error: "Missing fields" });
-
-    const admin = await Admin.findOne(); // only one admin
-
-    if (!admin)
-      return res.status(404).json({ success: false, error: "Admin not found" });
-
-    if (type === "ADMIN_LOGIN") {
-      admin.password = passwordHash;
-    } else if (type === "STUDENT_DELETE") {
-      admin.additionalPassword = passwordHash;
-    } else {
-      return res
-        .status(400)
-        .json({ success: false, error: "Invalid password type" });
-    }
-
-    await admin.save();
-
-    return res.json({
-      success: true,
-      message: "Password updated successfully",
-    });
-  } catch (err) {
-    console.log(err);
-    return res.status(500).json({ success: false, error: "Server error" });
-  }
-};
-
 // API For verifying additional password
 exports.verifyAdditionalPassword = async (req, res) => {
   try {
@@ -153,5 +118,37 @@ exports.verifyAdditionalPassword = async (req, res) => {
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const { username, contactNumber } = req.body;
+
+    if (!username && !contactNumber) {
+      return res.status(400).json({ message: "Nothing to update" });
+    }
+
+    const admin = await Admin.findOne();
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    if (username) admin.username = username;
+    if (contactNumber) admin.contactNumber = contactNumber;
+
+    await admin.save();
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user: {
+        username: admin.username,
+        contactNumber: admin.contactNumber,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Update failed" });
   }
 };

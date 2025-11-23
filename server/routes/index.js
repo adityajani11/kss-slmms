@@ -15,7 +15,6 @@ router.use("/mcqs", require("./MCQRoute"));
 router.use("/papers", require("./PaperRoute"));
 router.use("/materials", require("./MaterialRoute"));
 router.use("/exams", require("./ExamAttemptRoute"));
-router.use("/audit", require("./AuditLogsRoute"));
 router.use("/exam-attempts", require("./ExamAttemptRoute"));
 
 module.exports = router;

@@ -6,10 +6,10 @@ exports.create = async (req, res) => {
     const { standard } = req.body;
 
     // Validate input
-    if (!standard || standard < 9 || standard > 12) {
+    if (!standard || standard < 8 || standard > 12) {
       return res
         .status(400)
-        .json({ success: false, message: "Standard must be between 9 and 12" });
+        .json({ success: false, message: "Standard must be between 8 and 12" });
     }
 
     // Check for existing standard

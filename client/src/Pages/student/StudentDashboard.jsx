@@ -125,7 +125,8 @@ export default function StudentDashboard() {
         >
           <div>
             <h1 className="text-2xl font-bold">
-              Welcome, {student?.fullName || "Student"} 👋
+              Welcome,{" "}
+              {student?.fullName?.toString()?.toUpperCase() || "Student"} 👋
             </h1>
             <p className="text-white/80 mt-1">
               Keep learning and achieving great things!

@@ -435,7 +435,7 @@ exports.update = async (req, res) => {
       ...(payload.cast && { cast: payload.cast.trim() }),
       ...(payload.category && { category: payload.category }),
 
-      // 🔥 Update password ONLY IF provided
+      // Update password ONLY IF provided
       ...(payload.passwordHash && { passwordHash: payload.passwordHash }),
     };
 

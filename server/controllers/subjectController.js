@@ -1,5 +1,4 @@
 const Subject = require("../models/Subject");
-const mongoose = require("mongoose");
 
 // Create Subject
 exports.create = async (req, res) => {
