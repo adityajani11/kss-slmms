@@ -5,7 +5,10 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { parsePagination } = require("../utils/pagination");
+const { saveOtp, verifyOtp } = require("../utils/otpStore");
 const { parseInt: _p } = Number;
+const { saveOtpDb, verifyOtpDb } = require("../utils/otpDbStore");
+const axios = require("axios");
 
 // Helper to build filters from query
 const buildFilters = async (q) => {
@@ -111,10 +114,12 @@ exports.create = async (req, res) => {
       });
     }
 
+    const hashedPassword = await bcrypt.hash(payload.password, 10);
+
     // Create student document
     const newStudent = new Student({
       username: payload.username.toLowerCase(),
-      passwordHash: payload.passwordHash,
+      passwordHash: hashedPassword,
       fullName: payload.fullName.trim(),
       city: payload.city.trim(),
       district: payload.district.trim(),
@@ -460,43 +465,6 @@ exports.update = async (req, res) => {
   }
 };
 
-exports.softDelete = async (req, res) => {
-  try {
-    const doc = await Student.findById(req.params.id);
-    if (!doc)
-      return res.status(404).json({ success: false, error: "not found" });
-    if (typeof doc.softDelete === "function") {
-      await doc.softDelete();
-    } else {
-      doc.disabled = true;
-      await doc.save();
-    }
-    return res.json({ success: true, message: "soft deleted" });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-exports.restore = async (req, res) => {
-  try {
-    const doc = await Student.findOne({
-      _id: req.params.id,
-      includeDisabled: true,
-    });
-    if (!doc)
-      return res.status(404).json({ success: false, error: "not found" });
-    if (!("disabled" in doc))
-      return res
-        .status(400)
-        .json({ success: false, error: "restore not supported" });
-    doc.disabled = false;
-    await doc.save();
-    return res.json({ success: true, data: doc });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-};
-
 exports.hardDelete = async (req, res) => {
   try {
     const { id } = req.params;
@@ -533,4 +501,141 @@ exports.hardDelete = async (req, res) => {
       error: err.message,
     });
   }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { otp, newPassword } = req.body;
+
+    const student = await Student.findById(id);
+
+    if (!student) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Student not found" });
+    }
+
+    const phone = student.whatsappNumber.toString();
+
+    const isValid = await verifyOtpDb({
+      userId: student._id,
+      phone,
+      otp,
+      purpose: "PASSWORD_RESET",
+    });
+
+    if (!isValid) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid or expired OTP" });
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid password" });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    student.passwordHash = hash;
+
+    await student.save();
+
+    res.json({ success: true, message: "Password updated successfully" });
+  } catch (err) {
+    console.error("CHANGE PASSWORD ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.sendOtp = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const student = await Student.findById(id);
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    const phone = student.whatsappNumber.toString();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save OTP in memory
+    await saveOtpDb({
+      userId: student._id,
+      phone,
+      otp,
+      purpose: "PASSWORD_RESET",
+    });
+
+    // WhatsApp template JSON (same structure as Admin)
+    const templateJson = {
+      to: phone,
+      recipient_type: "individual",
+      type: "template",
+      template: {
+        language: {
+          policy: "deterministic",
+          code: "en",
+        },
+        name: "send_otp_message",
+        components: [
+          {
+            type: "body",
+            parameters: [
+              {
+                type: "text",
+                text: otp,
+              },
+            ],
+          },
+          {
+            type: "button",
+            sub_type: "url",
+            index: 0,
+            parameters: [
+              {
+                type: "text",
+                text: otp,
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    // Send via WhatsApp API (same as admin)
+    await axios.post(process.env.WHATSAPP_API_URL, templateJson, {
+      headers: {
+        Authorization: `Bearer ${process.env.WHATAPI_TOKEN}`,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "OTP sent successfully to WhatsApp",
+    });
+  } catch (err) {
+    console.error("Student OTP send error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send OTP",
+    });
+  }
+};
+
+exports.verifyOtp = (req, res) => {
+  const { phone, otp } = req.body;
+
+  const valid = verifyOtpDb(phone, otp);
+
+  if (!valid) {
+    return res.json({ success: false, message: "Invalid or expired OTP" });
+  }
+
+  res.json({ success: true, message: "OTP verified" });
 };

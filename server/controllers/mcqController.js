@@ -1,10 +1,9 @@
 require("../models/StaffAdmin");
 const MCQ = require("../models/MCQ");
 const fs = require("fs");
-const path = require("path");
 const puppeteer = require("puppeteer");
-const katex = require("katex");
 const mongoose = require("mongoose");
+const { buildHTML } = require("../utils/buildHTML");
 
 // basic validation helper
 const ensureOneCorrect = (options) => {
@@ -473,257 +472,16 @@ exports.getRandomByStandard = async (req, res) => {
   }
 };
 
-/* ---------- HELPER: HTML Builder ---------- */
-function buildHTML(mcqs, pdfHeading = "") {
-  const katexCSS = fs.readFileSync(
-    require.resolve("katex/dist/katex.min.css"),
-    "utf8"
-  );
-
-  const nilkanthFontPath = path.join(__dirname, "../fonts/Nilkanth.ttf");
-  const nilkanthFontBase64 = fs
-    .readFileSync(nilkanthFontPath)
-    .toString("base64");
-
-  const safeHeading = pdfHeading?.trim() || "";
-
-  const header = `
-  <!DOCTYPE html>
-  <html lang="gu">
-  <head>
-    <meta charset="UTF-8" />
-    <title>MCQ</title>
-    <style>
-      @font-face {
-        font-family: 'Nilkanth';
-        src: url(data:font/truetype;charset=utf-8;base64,${nilkanthFontBase64}) format('truetype');
-      }
-
-      body {
-        font-family: Arial, sans-serif;
-        line-height: 1.6;
-        color: #000;
-        font-size: 14px;
-        margin: 30px 40px;
-        position: relative;
-      }
-
-      body::before {
-        content: "KRISHNA SCHOOL GROUP";
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%) rotate(-30deg);
-        font-size: 60px;
-        font-weight: bold;
-        color: rgba(0, 0, 0, 0.08);
-        z-index: -2;
-        white-space: nowrap;
-        pointer-events: none;
-      }
-
-      body::after {
-        content: "";
-        position: fixed;
-        top: 0px;
-        bottom: 0px;
-        left: 0px;
-        right: 0px;
-        border: 2px solid #444;
-        z-index: -1;
-        pointer-events: none;
-      }
-
-      .guj {
-        font-family: 'Nilkanth', Arial, sans-serif;
-      }
-
-      .latin {
-        font-family: Arial, sans-serif;
-      }
-
-      .header {
-        text-align: center;
-        margin-bottom: 25px;
-        column-span: all;
-      }
-
-      .school-name {
-        font-weight: bold;
-        font-size: 20px;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        color: #111;
-      }
-
-      .pdf-heading {
-        font-size: 16px;
-        font-weight: 600;
-        margin-top: 4px;
-        color: #333;
-      }
-
-      .divider {
-        width: 100%;
-        height: 1px;
-        background: #222;
-        margin: 8px auto 12px auto;
-      }
-
-      /* Updated for left-to-right column fill */
-      .columns {
-        column-count: 2;
-        column-gap: 40px;
-        column-rule: 2px solid #ccc;
-        column-fill: auto; /* <-- Added: fills left column first */
-      }
-
-      .mcq {
-        break-inside: avoid;
-        margin-bottom: 18px;
-        padding-bottom: 8px;
-      }
-
-      .q {
-        font-weight: 500;
-        margin-bottom: 5px;
-      }
-
-      .mcq-img {
-        display: block;
-        max-width: 80%;
-        height: auto;
-        margin: 8px auto 12px auto;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-      }
-
-      .opts {
-        margin-left: 20px;
-        margin-top: 2px;
-      }
-
-      .opt {
-        margin: 2px 0;
-      }
-
-      .opt-img {
-        display: block;
-        max-width: 70%;
-        height: auto;
-        margin-top: 4px;
-        margin-left: 25px;
-        border: 1px solid #ccc;
-        border-radius: 3px;
-      }
-
-      .ans {
-        color: green;
-        font-style: italic;
-        margin-top: 3px;
-      }
-
-      .exp {
-        margin-top: 5px;
-      }
-
-      ${katexCSS}
-    </style>
-  </head>
-  <body>
-    <div class="header">
-      <div class="school-name">KRISHNA SCHOOL GROUP</div>
-      <div class="divider"></div>
-      <div class="pdf-heading">${wrapGujarati(safeHeading)}</div>
-    </div>
-
-    <div class="columns">
-  `;
-
-  let content = "";
-
-  mcqs.forEach((mcq, i) => {
-    const q = wrapGujarati(renderKaTeXInline(mcq.question.text || ""));
-
-    // Build full image URL if relative
-    let qImage = mcq.question?.image || "";
-    if (qImage && !/^https?:\/\//i.test(qImage)) {
-      qImage = `${
-        process.env.BASE_URL || "http://localhost:5000"
-      }/${qImage.replace(/\\/g, "/")}`;
-    }
-
-    const qImageTag = qImage
-      ? `<img src="${qImage}" class="mcq-img" alt="MCQ Image" />`
-      : "";
-
-    const opts = mcq.options
-      .map((o, idx) => {
-        const optText = wrapGujarati(renderKaTeXInline(o.label || ""));
-        let optImage = o.image || "";
-        if (optImage && !/^https?:\/\//i.test(optImage)) {
-          optImage = `${
-            process.env.BASE_URL || "http://localhost:5000"
-          }/${optImage.replace(/\\/g, "/")}`;
-        }
-
-        const optImgTag = optImage
-          ? `<img src="${optImage}" class="opt-img" alt="Option Image" />`
-          : "";
-
-        return `<div class="opt"><span class="latin">(${String.fromCharCode(
-          65 + idx
-        )})</span> ${optText} ${optImgTag}</div>`;
-      })
-      .join("");
-
-    const ansIdx = mcq.options.findIndex((o) => o.isCorrect);
-    const ansLetter = ansIdx >= 0 ? String.fromCharCode(65 + ansIdx) : "?";
-    const exp = mcq.explanation
-      ? wrapGujarati(renderKaTeXInline(mcq.explanation))
-      : "";
-
-    content += `
-      <div class="mcq">
-        <div class="q"><b>${i + 1}.</b> ${q}</div>
-        ${qImageTag}
-        <div class="opts">${opts}</div>
-        <div class="ans"><span class="latin">Ans: ${ansLetter}</span></div>
-        ${exp ? `<div class="exp"><b class="guj">સમજૂતી:</b> ${exp}</div>` : ""}
-      </div>
-    `;
-  });
-
-  return header + content + "</div></body></html>";
-}
-
-/* ---------- HELPER: KaTeX inline renderer ---------- */
-function renderKaTeXInline(text) {
-  return text.replace(/\$([^$]+)\$/g, (match, math) => {
-    try {
-      return katex.renderToString(math.trim(), {
-        throwOnError: false,
-        displayMode: false,
-        strict: false,
-      });
-    } catch {
-      return match;
-    }
-  });
-}
-
-/* ---------- HELPER: Gujarati auto-wrapper ---------- */
-function wrapGujarati(text) {
-  // Detect Gujarati script Unicode range: \u0A80–\u0AFF
-  return text.replace(/([\u0A80-\u0AFF]+)/g, "<span class='guj'>$1</span>");
-}
-
 /* ---------- API: DOWNLOAD MCQ PDF ROUTE ---------- */
 exports.getFilteredMcqPDF = async (req, res) => {
   try {
-    const { mcqIds, pdfHeading, includeAnswers } = req.body;
+    const {
+      mcqIds,
+      pdfHeading,
+      includeAnswers = false,
+      includeExplanations = false,
+    } = req.body;
 
-    // Validate input
     if (!mcqIds || !Array.isArray(mcqIds) || mcqIds.length === 0) {
       return res.status(400).json({
         success: false,
@@ -731,7 +489,6 @@ exports.getFilteredMcqPDF = async (req, res) => {
       });
     }
 
-    // Fetch full MCQs by IDs
     const mcqs = await MCQ.find({ _id: { $in: mcqIds } })
       .populate("subjectId", "name")
       .populate("categoryId", "name")
@@ -740,14 +497,18 @@ exports.getFilteredMcqPDF = async (req, res) => {
     if (!mcqs.length) {
       return res.status(404).json({
         success: false,
-        error: "No MCQs found for the provided IDs",
+        error: "No MCQs found for provided IDs",
       });
     }
 
-    // Pass includeAnswers to HTML builder
-    const html = buildHTML(mcqs, pdfHeading, includeAnswers);
+    // ✅ USE YOUR UTIL HERE
+    const html = buildHTML(
+      mcqs,
+      pdfHeading,
+      includeAnswers,
+      includeExplanations
+    );
 
-    // --- Generate PDF using Puppeteer ---
     const browser = await puppeteer.launch({
       headless: "new",
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -756,7 +517,7 @@ exports.getFilteredMcqPDF = async (req, res) => {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle2" });
     await page.evaluateHandle("document.fonts.ready");
-    await new Promise((res) => setTimeout(res, 100));
+    await new Promise((r) => setTimeout(r, 100));
 
     const pdfBuffer = await page.pdf({
       format: "A4",
@@ -780,7 +541,7 @@ exports.getFilteredMcqPDF = async (req, res) => {
 
     res.set({
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${pdfHeading}.pdf"`,
+      "Content-Disposition": `inline; filename="${pdfHeading || "mcq"}.pdf"`,
     });
 
     return res.send(pdfBuffer);

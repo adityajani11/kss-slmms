@@ -28,7 +28,7 @@ function buildHTML(mcqs, pdfHeading = "", includeAnswers, includeExplanations) {
       }
 
       @page {
-       margin: 20mm;
+       margin: 12mm;
       }
 
       .footer {
@@ -44,7 +44,7 @@ function buildHTML(mcqs, pdfHeading = "", includeAnswers, includeExplanations) {
         line-height: 1.6;
         color: #000;
         font-size: 14px;
-        margin: 30px 40px;
+        margin: 20px 30px;
         position: relative;
       }
 
@@ -150,9 +150,6 @@ function buildHTML(mcqs, pdfHeading = "", includeAnswers, includeExplanations) {
     </div>
 
     <div class="columns">
-    <div class="footer">
-      Page <span class="pageNumber"></span> / <span class="totalPages"></span>
-    </div>
   `;
 
   let content = "";

@@ -49,7 +49,6 @@ export default function Login() {
 
       navigate(`/${role}/dashboard`, { replace: true });
     } catch (err) {
-      console.error(err);
       setError(err.message || "An unexpected error occurred");
     } finally {
       setLoading(false);

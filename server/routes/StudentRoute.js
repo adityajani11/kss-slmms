@@ -9,10 +9,9 @@ router.post("/login", ctrl.login);
 router.get("/export", ctrl.export);
 router.get("/:id", ctrl.getById);
 router.put("/:id", ctrl.update);
-router.delete("/:id", ctrl.softDelete); // remove
-router.post("/:id/restore", ctrl.restore); // remove
 router.delete("/:id/hard", ctrl.hardDelete);
-// // routes/student.routes.js
-// router.post("/students/:id/send-otp", sendOtp);
+router.post("/:id/send-otp", ctrl.sendOtp);
+router.post("/verify-otp", ctrl.verifyOtp);
+router.put("/:id/change-password", ctrl.changePassword);
 
 module.exports = router;

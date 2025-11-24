@@ -111,7 +111,7 @@ export default function Settings() {
 
   const handleUsernameUpdate = async () => {
     if (!isValidUsername(newUsername)) {
-      return Swal.fire("Error", "Username must be 1–40 characters", "error");
+      return Swal.fire("Error", "Username must be 1 - 40 characters", "error");
     }
 
     await startOtpFlow(async (otp) => {

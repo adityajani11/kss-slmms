@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import bcrypt from "bcryptjs";
 import { Spin } from "antd";
 
 export default function ManageProfile() {
@@ -200,33 +199,27 @@ export default function ManageProfile() {
 
   // --- Change Password modal ---
   const handleChangePassword = async () => {
-    // open Swal modal with two inputs
     const { value: formValues } = await Swal.fire({
       title: "Change password",
       html:
         '<input id="swal-new-pass" type="password" class="swal2-input" placeholder="New password">' +
-        '<input id="swal-confirm-pass" type="password" class="swal2-input" placeholder="Confirm new password">',
-      focusConfirm: false,
+        '<input id="swal-confirm-pass" type="password" class="swal2-input" placeholder="Confirm password">',
       showCancelButton: true,
-      confirmButtonText: "Change password",
-      confirmButtonColor: "#2563EB",
+      confirmButtonText: "Next",
       preConfirm: () => {
         const newPass = document.getElementById("swal-new-pass").value;
         const confirm = document.getElementById("swal-confirm-pass").value;
-        if (!newPass) {
-          Swal.showValidationMessage("New password is required");
+
+        if (!newPass || newPass.length < 6) {
+          Swal.showValidationMessage("Password must be at least 6 characters");
           return false;
         }
-        if (newPass.length < 6) {
-          Swal.showValidationMessage(
-            "Password should be at least 6 characters"
-          );
-          return false;
-        }
+
         if (newPass !== confirm) {
           Swal.showValidationMessage("Passwords do not match");
           return false;
         }
+
         return { newPass };
       },
     });
@@ -234,37 +227,37 @@ export default function ManageProfile() {
     if (!formValues) return;
 
     setChangingPassword(true);
-    try {
-      // hash password in browser
-      const salt = await bcrypt.genSalt(10);
-      const hash = await bcrypt.hash(formValues.newPass, salt);
 
-      // send to dedicated endpoint: PUT /students/:id/password
-      const res = await axios.put(`${base}/students/${student._id}`, {
-        passwordHash: hash,
+    try {
+      // 1. Send OTP
+      await axios.post(`${base}/students/${student._id}/send-otp`);
+
+      // 2. Ask OTP from user
+      const { value: otp } = await Swal.fire({
+        title: "Enter OTP",
+        input: "text",
+        inputPlaceholder: "6-digit OTP",
+        showCancelButton: true,
       });
+
+      if (!otp) return;
+
+      // 3. Change password
+      const res = await axios.put(
+        `${base}/students/${student._id}/change-password`,
+        {
+          newPassword: formValues.newPass,
+          otp,
+        }
+      );
 
       if (res.data?.success) {
-        Swal.fire({
-          title: "Success",
-          text: "Password changed successfully.",
-          icon: "success",
-          confirmButtonColor: "#2563EB",
-        });
+        Swal.fire("Success", "Password changed successfully", "success");
       } else {
-        Swal.fire({
-          title: "Error",
-          text: res.data?.error || "Failed to change password",
-          icon: "error",
-        });
+        Swal.fire("Error", res.data?.message, "error");
       }
     } catch (err) {
-      console.error("Change password error", err);
-      Swal.fire({
-        title: "Error",
-        text: err.response?.data?.error || "Something went wrong",
-        icon: "error",
-      });
+      Swal.fire("Error", "Something went wrong", "error");
     } finally {
       setChangingPassword(false);
     }
