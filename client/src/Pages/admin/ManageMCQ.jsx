@@ -312,7 +312,7 @@ export default function ManageMCQ() {
 
       const newRandomIds = (res.data.data || []).map((m) => m._id);
 
-      // ✅ Replace all previous selections
+      // Replace all previous selections
       setSelectedForPaper(new Set(newRandomIds));
 
       setRandomModalVisible(false);
@@ -756,6 +756,7 @@ export default function ManageMCQ() {
               value={randomCount}
               onChange={(value) => setRandomCount(value)}
               className="w-full"
+              placeholder="Select number of MCQs"
             >
               <Select.Option value={25}>25 MCQs</Select.Option>
               <Select.Option value={40}>40 MCQs</Select.Option>
@@ -764,7 +765,7 @@ export default function ManageMCQ() {
               <Select.Option value={120}>120 MCQs</Select.Option>
             </Select>
 
-            <div className="text-right">
+            <div className="text-right pt-2">
               <Button
                 onClick={() => setRandomModalVisible(false)}
                 className="me-2"

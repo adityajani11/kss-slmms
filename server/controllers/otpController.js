@@ -1,18 +1,36 @@
 const Admin = require("../models/Admin");
 const axios = require("axios");
-const { saveOtp } = require("../utils/otpStore");
-const { verifyOtp } = require("../utils/otpStore");
+const { saveOtpDb, verifyOtpDb } = require("../utils/otpDbStore");
 
+// Helper
+const generateOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
+
+/**
+ * SEND OTP (DB Based)
+ */
 exports.sendAdminOtp = async (req, res) => {
   try {
+    const { purpose } = req.body;
+
+    if (!purpose) {
+      return res.status(400).json({ message: "Purpose is required" });
+    }
+
     const admin = await Admin.findOne();
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = generateOtp();
 
-    saveOtp(admin.contactNumber, otp);
+    // ✅ Save OTP to MongoDB
+    await saveOtpDb({
+      userId: admin._id,
+      phone: admin.contactNumber,
+      otp,
+      purpose,
+    });
 
     const templateJson = {
       to: admin.contactNumber,
@@ -27,23 +45,13 @@ exports.sendAdminOtp = async (req, res) => {
         components: [
           {
             type: "body",
-            parameters: [
-              {
-                type: "text",
-                text: otp,
-              },
-            ],
+            parameters: [{ type: "text", text: otp }],
           },
           {
             type: "button",
             sub_type: "url",
             index: 0,
-            parameters: [
-              {
-                type: "text",
-                text: otp,
-              },
-            ],
+            parameters: [{ type: "text", text: otp }],
           },
         ],
       },
@@ -62,6 +70,9 @@ exports.sendAdminOtp = async (req, res) => {
   }
 };
 
+/**
+ * VERIFY OTP + UPDATE PASSWORD
+ */
 exports.verifyOtpAndUpdatePassword = async (req, res) => {
   try {
     const { otp, passwordHash, type } = req.body;
@@ -69,7 +80,15 @@ exports.verifyOtpAndUpdatePassword = async (req, res) => {
     const admin = await Admin.findOne();
     if (!admin) return res.status(404).json({ message: "Admin not found" });
 
-    const isOtpValid = verifyOtp(admin.contactNumber, otp);
+    const purpose = "PASSWORD_RESET";
+
+    // ✅ Verify from MongoDB
+    const isOtpValid = await verifyOtpDb({
+      userId: admin._id,
+      phone: admin.contactNumber,
+      otp,
+      purpose,
+    });
 
     if (!isOtpValid) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
@@ -90,6 +109,9 @@ exports.verifyOtpAndUpdatePassword = async (req, res) => {
   }
 };
 
+/**
+ * VERIFY OTP + UPDATE PROFILE
+ */
 exports.verifyOtpAndUpdateProfile = async (req, res) => {
   try {
     const { otp, username, contactNumber } = req.body;
@@ -97,7 +119,16 @@ exports.verifyOtpAndUpdateProfile = async (req, res) => {
     const admin = await Admin.findOne();
     if (!admin) return res.status(404).json({ message: "Admin not found" });
 
-    const isValid = verifyOtp(admin.contactNumber, otp);
+    const purpose = "PROFILE_UPDATE";
+
+    // ✅ Verify from MongoDB
+    const isValid = await verifyOtpDb({
+      userId: admin._id,
+      phone: admin.contactNumber,
+      otp,
+      purpose,
+    });
+
     if (!isValid) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }

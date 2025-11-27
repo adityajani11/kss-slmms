@@ -5,7 +5,6 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { parsePagination } = require("../utils/pagination");
-const { saveOtp, verifyOtp } = require("../utils/otpStore");
 const { parseInt: _p } = Number;
 const { saveOtpDb, verifyOtpDb } = require("../utils/otpDbStore");
 const axios = require("axios");
@@ -564,7 +563,7 @@ exports.sendOtp = async (req, res) => {
     const phone = student.whatsappNumber.toString();
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Save OTP in memory
+    // Save OTP in DB
     await saveOtpDb({
       userId: student._id,
       phone,

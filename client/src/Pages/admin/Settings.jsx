@@ -35,7 +35,7 @@ export default function Settings() {
   const isValidContact = (c) => /^\d{10}$/.test(c);
 
   // ===== OTP Helper =====
-  const startOtpFlow = async (callback) => {
+  const startOtpFlow = async (purpose, callback) => {
     const ask = await Swal.fire({
       title: "Send OTP?",
       text: "OTP will be sent to WhatsApp",
@@ -47,14 +47,13 @@ export default function Settings() {
     if (!ask.isConfirmed) return;
 
     try {
-      await axios.post(`${base}/admin/send-otp`);
+      await axios.post(`${base}/admin/send-otp`, { purpose });
+
       let finalOtp = null;
 
       await Swal.fire({
         title: "OTP Verification",
-        html: `
-        <input id="otp-input" class="swal2-input" maxlength="6" placeholder="Enter OTP"/>
-      `,
+        html: `<input id="otp-input" class="swal2-input" maxlength="6" placeholder="Enter OTP"/>`,
         showCancelButton: true,
         confirmButtonText: "Verify OTP",
         preConfirm: () => {
@@ -91,7 +90,7 @@ export default function Settings() {
       return Swal.fire("Error", "Passwords do not match", "error");
     }
 
-    await startOtpFlow(async (otp) => {
+    await startOtpFlow("PASSWORD_RESET", async (otp) => {
       const hash = await bcrypt.hash(pass, 10);
 
       const res = await axios.post(`${base}/admin/verify-otp-update-password`, {
@@ -114,7 +113,7 @@ export default function Settings() {
       return Swal.fire("Error", "Username must be 1 - 40 characters", "error");
     }
 
-    await startOtpFlow(async (otp) => {
+    await startOtpFlow("PROFILE_UPDATE", async (otp) => {
       const res = await axios.post(`${base}/admin/verify-otp-update-profile`, {
         otp,
         username: newUsername,
@@ -133,7 +132,7 @@ export default function Settings() {
       return Swal.fire("Error", "Contact must be exactly 10 digits", "error");
     }
 
-    await startOtpFlow(async (otp) => {
+    await startOtpFlow("PROFILE_UPDATE", async (otp) => {
       const res = await axios.post(`${base}/admin/verify-otp-update-profile`, {
         otp,
         contactNumber: newContact,
