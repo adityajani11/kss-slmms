@@ -16,5 +16,6 @@ router.use("/papers", require("./PaperRoute"));
 router.use("/materials", require("./MaterialRoute"));
 router.use("/exams", require("./ExamAttemptRoute"));
 router.use("/exam-attempts", require("./ExamAttemptRoute"));
+router.use("/forgot-password", require("./ForgotPasswordRoute"));
 
 module.exports = router;

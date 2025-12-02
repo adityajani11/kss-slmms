@@ -7,6 +7,8 @@ const Standard = require("../models/Standard");
 
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const axios = require("axios");
+const { saveOtpDb, verifyOtpDb } = require("../utils/otpDbStore");
 
 // Create new staff
 exports.create = async (req, res) => {
@@ -244,5 +246,111 @@ exports.getAllCounts = async (req, res) => {
         standards: "N/A",
       },
     });
+  }
+};
+
+// API to request password change OTP
+exports.requestPasswordOtp = async (req, res) => {
+  const staffId = req.user.id;
+  const { newPassword } = req.body;
+
+  try {
+    const staff = await StaffAdmin.findById(staffId);
+    if (!staff) return res.status(404).json({ message: "Staff not found" });
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save OTP to DB
+    await saveOtpDb({
+      userId: staff._id,
+      phone: staff.contactNumber,
+      otp,
+      purpose: "PASSWORD_RESET",
+    });
+
+    // WhatsApp Template JSON (same structure as Admin)
+    const templateJson = {
+      to: staff.contactNumber,
+      recipient_type: "individual",
+      type: "template",
+      template: {
+        language: {
+          policy: "deterministic",
+          code: "en",
+        },
+        name: "send_otp_message",
+        components: [
+          {
+            type: "body",
+            parameters: [
+              {
+                type: "text",
+                text: otp,
+              },
+            ],
+          },
+          {
+            type: "button",
+            sub_type: "url",
+            index: 0,
+            parameters: [
+              {
+                type: "text",
+                text: otp,
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    // Send via WhatsApp API
+    await axios.post(process.env.WHATSAPP_API_URL, templateJson, {
+      headers: {
+        Authorization: `Bearer ${process.env.WHATAPI_TOKEN}`,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "OTP sent successfully to WhatsApp",
+    });
+  } catch (err) {
+    console.error("Password OTP Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message,
+    });
+  }
+};
+
+// API to verify OTP and change password
+exports.verifyPasswordOtp = async (req, res) => {
+  const staffId = req.user.id;
+  const { newPassword, otp } = req.body;
+
+  try {
+    const staff = await StaffAdmin.findById(staffId);
+    if (!staff) return res.status(404).json({ message: "Staff not found" });
+
+    const verified = await verifyOtpDb({
+      userId: staff._id,
+      phone: staff.contactNumber,
+      otp,
+      purpose: "PASSWORD_RESET",
+    });
+
+    if (!verified)
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    staff.password = hashed;
+    await staff.save();
+
+    res.json({ message: "Password changed successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };

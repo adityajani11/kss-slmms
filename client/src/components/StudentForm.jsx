@@ -135,15 +135,24 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
       setLoading(true);
       let payload = { ...formData };
 
-      // Hash password only if set
+      // Always lowercase username
+      payload.username = payload.username.toLowerCase();
+
+      // Password handling
       if (!editingStudent || formData.password.trim() !== "") {
-        const salt = await bcrypt.genSalt(10);
-        const hash = await bcrypt.hash(formData.password, salt);
-        payload.passwordHash = hash;
+        payload.password = formData.password;
+      } else {
+        delete payload.password;
       }
 
-      delete payload.password;
       delete payload.confirmPassword;
+      delete payload.passwordHash;
+
+      // Clean optional fields
+      if (!payload.gender) delete payload.gender;
+      if (!payload.category) delete payload.category;
+      if (!payload.cast) delete payload.cast;
+      if (!payload.stream) delete payload.stream;
 
       if (editingStudent) {
         await axios.put(`${base}/students/${editingStudent._id}`, payload);
@@ -159,7 +168,7 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
       console.error(err);
       Swal.fire(
         "Error",
-        err.response?.data?.error || "Something went wrong!",
+        err.response?.data?.message || "Something went wrong!",
         "error"
       );
     } finally {
@@ -580,6 +589,16 @@ export default function StudentForm({ onClose, onSave, editingStudent }) {
    Reusable Input Components
 ---------------------------- */
 function InputField({ label, name, value, onChange, error, ...rest }) {
+  const handleChange = (e) => {
+    let val = e.target.value;
+
+    if (name === "username") {
+      val = val.toLowerCase(); // enforce live lowercase
+    }
+
+    onChange((p) => ({ ...p, [name]: val }));
+  };
+
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700">{label}</label>
@@ -587,7 +606,7 @@ function InputField({ label, name, value, onChange, error, ...rest }) {
         {...rest}
         name={name}
         value={value}
-        onChange={(e) => onChange((p) => ({ ...p, [name]: e.target.value }))}
+        onChange={handleChange}
         className={`w-full border rounded-lg p-2 mt-1 focus:ring-2 focus:ring-blue-500 outline-none ${
           error ? "border-red-500" : "border-gray-300"
         }`}

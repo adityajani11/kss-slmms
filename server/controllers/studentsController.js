@@ -136,13 +136,13 @@ exports.create = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Student added successfully.",
+      message: "Account created successfully.",
       data: newStudent,
     });
   } catch (err) {
     return res.status(500).json({
       success: false,
-      message: "An unexpected error occurred while adding the student.",
+      message: "An unexpected error occurred while creating an account.",
       error: err.message,
     });
   }

@@ -25,6 +25,7 @@ import SelectMCQs from "./components/SelectMCQs";
 import ViewAllMCQs from "./pages/student/ViewAllMCQs";
 import Settings from "./pages/admin/Settings";
 import ExamResultPreview from "./pages/student/ExamResultPreview";
+import ChangePassword from "./pages/staff/ChangePassword";
 
 import "katex/dist/katex.min.css";
 
@@ -76,6 +77,7 @@ function App() {
           element={<MyGeneratedPapersStaffAdmin />}
         />
         <Route path="manage-materials" element={<ManageMaterial />} />
+        <Route path="change-password" element={<ChangePassword />} />
       </Route>
 
       {/* Student Routes */}

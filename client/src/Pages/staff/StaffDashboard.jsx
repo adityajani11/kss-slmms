@@ -70,12 +70,15 @@ export default function StaffDashboard() {
     },
   ];
 
+  const staffUser = localStorage.getItem("user");
+  const staffUserName = staffUser ? JSON.parse(staffUser)?.fullName : "Staff";
+
   return (
     <div className="min-h-fit">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl lg:text-4xl font-bold text-gray-800 tracking-tight">
-            Welcome, Staff
+            Welcome, {staffUserName?.toString()?.toUpperCase()}!
           </h1>
           <p className="text-gray-600 mt-2 text-sm lg:text-lg">
             Here’s an overview of your academic statistics.

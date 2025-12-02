@@ -257,7 +257,11 @@ export default function ManageProfile() {
         Swal.fire("Error", res.data?.message, "error");
       }
     } catch (err) {
-      Swal.fire("Error", "Something went wrong", "error");
+      Swal.fire(
+        "Error",
+        "Password change process failed! Please try again.",
+        "error"
+      );
     } finally {
       setChangingPassword(false);
     }
@@ -283,7 +287,7 @@ export default function ManageProfile() {
         <div className="max-w-md w-full bg-white rounded-2xl shadow p-6 text-center">
           <h3 className="text-lg font-semibold mb-2">Profile not found</h3>
           <p className="text-sm text-gray-600">
-            Could not load your profile. Please try again later.
+            Could not load your profile. Please login again.
           </p>
         </div>
       </div>

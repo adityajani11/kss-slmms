@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Loader from "../components/Loader";
 import logo from "../assets/logo-trans.png";
 import StudentForm from "../components/StudentForm";
+import ForgotPasswordModal from "../components/ForgotPasswordModal";
 
 const roles = ["admin", "staff", "student"];
 
@@ -14,6 +15,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showStudentForm, setShowStudentForm] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+
   const navigate = useNavigate();
 
   // Auto-clear error after 2 seconds
@@ -177,6 +180,15 @@ export default function Login() {
               >
                 {loading ? "Signing in..." : "Sign In"}
               </button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-indigo-600 hover:text-indigo-700"
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </form>
 
             {/* Student Note */}
@@ -252,6 +264,13 @@ export default function Login() {
               <StudentForm onClose={() => setShowStudentForm(false)} />
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== FORGOT PASSWORD MODAL ===== */}
+      <AnimatePresence>
+        {showForgotPassword && (
+          <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />
         )}
       </AnimatePresence>
     </div>

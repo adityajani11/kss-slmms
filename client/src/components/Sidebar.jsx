@@ -11,6 +11,7 @@ import {
   Layers,
   FolderOpen,
   X,
+  EyeIcon,
   Settings,
 } from "lucide-react";
 
@@ -115,6 +116,11 @@ export default function Sidebar({ panelType, onAddStaff, onClose }) {
         label: "Manage Materials",
         icon: <FolderOpen size={18} />,
         to: "/staff/manage-materials",
+      },
+      {
+        label: "Change Password",
+        icon: <EyeIcon size={18} />,
+        to: "/staff/change-password",
       },
     ],
     student: [
