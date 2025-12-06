@@ -152,14 +152,11 @@ export default function ManageMaterial() {
   const handleView = (record) => {
     if (!record.file?.fileId)
       return Swal.fire("Error", "No file available to view", "error");
-    const fileUrl = `${base.replace(/\/api\/v1$/, "")}/${record.file.fileId}`;
+    const fileUrl = `${base}/materials/${record._id}`;
     window.open(fileUrl, "_blank");
   };
 
   const handleDownload = async (record) => {
-    if (!record.file?.fileId)
-      return Swal.fire("Error", "No file available to download", "error");
-
     const confirm = await Swal.fire({
       title: "Download Material?",
       text: `Do you want to download "${record.title}"?`,
@@ -172,27 +169,39 @@ export default function ManageMaterial() {
 
     if (!confirm.isConfirmed) return;
 
-    // Show loading spinner modal
     Swal.fire({
-      title: "Downloading...",
-      text: "Please wait while the file is being downloaded.",
+      title: "Preparing download...",
+      text: "Please wait...",
       allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
+      didOpen: () => Swal.showLoading(),
     });
 
-    const fileUrl = `${base.replace(/\/api\/v1$/, "")}/${record.file.fileId}`;
     try {
-      const response = await axios.get(fileUrl, { responseType: "blob" });
-      const blob = new Blob([response.data], { type: "application/pdf" });
+      const downloadUrl = `${base}/materials/${record._id}/download`;
+
+      // Create a temporary link
       const link = document.createElement("a");
-      link.href = window.URL.createObjectURL(blob);
-      link.download = record.title?.replace(/\s+/g, "_") + ".pdf";
+      link.href = downloadUrl;
+      link.download = record.title.replace(/\s+/g, "_") + ".pdf";
+      document.body.appendChild(link);
+
+      // Trigger browser download
       link.click();
-      window.URL.revokeObjectURL(link.href);
-      Swal.fire("Success", "File downloaded successfully!", "success");
-    } catch {
+
+      // STOP LOADER IMMEDIATELY AFTER CLICK
+      Swal.close();
+
+      // Cleanup
+      link.remove();
+
+      // Optional small toast
+      Swal.fire({
+        icon: "success",
+        title: "Download in progress",
+        timer: 1200,
+        showConfirmButton: false,
+      });
+    } catch (err) {
       Swal.fire("Error", "Failed to download file", "error");
     }
   };

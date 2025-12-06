@@ -1,12 +1,16 @@
+// routes/mcq.js
 const express = require("express");
 const router = express.Router();
-const upload = require("../middleware/uploadMCQ");
+
+// NEW: use memory storage instead of uploadMCQ (disk storage)
+const upload = require("../middleware/multerMemory");
+
 const ctrl = require("../controllers/mcqController");
 
 // PDF route for filtered MCQs
 router.post("/pdf", ctrl.getFilteredMcqPDF);
 
-/* ---------- CRUD ROUTES ---------- */
+/* ---------- CREATE MCQ ---------- */
 router.post(
   "/",
   upload.fields([
@@ -19,6 +23,7 @@ router.post(
   ctrl.createMCQ
 );
 
+/* ---------- UPDATE MCQ ---------- */
 router.put(
   "/:id",
   upload.fields([
@@ -31,6 +36,7 @@ router.put(
   ctrl.update
 );
 
+/* ---------- OTHERS ---------- */
 router.get("/", ctrl.list);
 router.get("/:id", ctrl.getById);
 router.delete("/:id", ctrl.softDelete);

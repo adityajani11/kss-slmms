@@ -63,54 +63,76 @@ export default function MyMaterial() {
     );
   }, [search, materials]);
 
-  // View file
+  // View file (open inline)
   const handleView = (record) => {
-    if (!record.file?.fileId) {
-      message.warning("No file available to view.");
-      return;
+    if (!record._id) {
+      return Swal.fire("Error", "No file available to view.", "error");
     }
-    const fileUrl = `${base.replace(/\/api\/v1$/, "")}/${record.file.fileId}`;
+
+    const fileUrl = `${base}/materials/${record._id}`;
     window.open(fileUrl, "_blank");
   };
 
-  // Download file with confirmation
+  // Download with confirmation + loader + auto-close loader
   const handleDownload = async (record) => {
-    if (!record.file?.fileId) {
-      Swal.fire("No File", "No file available to download.", "warning");
-      return;
+    if (!record._id) {
+      return Swal.fire("Error", "No file available to download.", "error");
     }
 
-    const fileUrl = `${base.replace(/\/api\/v1$/, "")}/${record.file.fileId}`;
+    const downloadUrl = `${base}/materials/${record._id}`;
 
-    Swal.fire({
-      title: "Confirm Download",
+    const confirm = await Swal.fire({
+      title: "Download Material?",
       text: `Do you want to download "${record.title}"?`,
       icon: "question",
       showCancelButton: true,
-      confirmButtonText: "Download",
-      cancelButtonText: "Cancel",
       confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      preConfirm: async () => {
-        try {
-          const response = await fetch(fileUrl);
-          if (!response.ok) throw new Error("Network error");
-
-          const blob = await response.blob();
-          const blobUrl = window.URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = blobUrl;
-          link.download = record.title || "material.pdf";
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          window.URL.revokeObjectURL(blobUrl);
-        } catch (err) {
-          console.error("Download error:", err);
-          Swal.showValidationMessage("Failed to download the file.");
-        }
-      },
+      cancelButtonColor: "#aaa",
+      confirmButtonText: "Yes, Download",
     });
+
+    if (!confirm.isConfirmed) return;
+
+    Swal.fire({
+      title: "Preparing download...",
+      text: "Please wait...",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+    });
+
+    try {
+      // Fetch file as blob (prevents auto-open)
+      const response = await fetch(downloadUrl, { method: "GET" });
+
+      if (!response.ok) throw new Error("Download failed");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      // Create temp link
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = record.title.replace(/\s+/g, "_") + ".pdf";
+      document.body.appendChild(link);
+
+      // Trigger browser download
+      link.click();
+
+      // CLEANUP
+      Swal.close();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      Swal.fire({
+        icon: "success",
+        title: "Download started",
+        showConfirmButton: false,
+        timer: 1200,
+      });
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", "Failed to download file.", "error");
+    }
   };
 
   return (

@@ -1,9 +1,11 @@
-require("../models/StaffAdmin");
 const MCQ = require("../models/MCQ");
 const fs = require("fs");
 const puppeteer = require("puppeteer");
 const mongoose = require("mongoose");
 const { buildHTML } = require("../utils/buildHTML");
+// near top of file
+const { uploadBufferToS3, buildKey } = require("../utils/s3Uploads");
+const deleteFromS3 = require("../utils/s3Delete");
 
 // basic validation helper
 const ensureOneCorrect = (options) => {
@@ -35,15 +37,13 @@ exports.createMCQ = async (req, res) => {
       });
     }
 
-    // Reconstruct options from req.body keys robustly.
-    // We find all indexes that match options[<index>][label]
+    // parse options same as before, but grab buffers when available
     const optionIndexSet = new Set();
     for (const key of Object.keys(req.body)) {
       const m = key.match(/^options\[(\d+)\]\[label\]$/);
       if (m) optionIndexSet.add(Number(m[1]));
     }
 
-    // Build parsedOptions in index order
     const parsedOptions = [];
     const indexes = Array.from(optionIndexSet).sort((a, b) => a - b);
     for (const i of indexes) {
@@ -51,8 +51,18 @@ exports.createMCQ = async (req, res) => {
       const isCorrectKey = `options[${i}][isCorrect]`;
       const rawLabel = req.body[labelKey];
       const rawIsCorrect = req.body[isCorrectKey];
-      // attach image if uploaded as optionImage_<i>
-      const imagePath = req.files?.[`optionImage_${i}`]?.[0]?.path || null;
+
+      // If an option image was uploaded, multer.memoryStorage gives buffer
+      const fileField = req.files?.[`optionImage_${i}`]?.[0] || null;
+      let imagePath = null;
+      if (fileField && fileField.buffer) {
+        const key = buildKey("mcq", fileField.originalname);
+        await uploadBufferToS3(fileField.buffer, key, fileField.mimetype);
+        imagePath = key; // store s3 key as image path
+      } else {
+        // allow client to pass existing path or null
+        imagePath = null;
+      }
 
       parsedOptions.push({
         label: typeof rawLabel === "string" ? rawLabel.trim() : rawLabel,
@@ -61,33 +71,27 @@ exports.createMCQ = async (req, res) => {
       });
     }
 
-    // If no options parsed, maybe frontend sent options as JSON string or as req.body.options
-    if (parsedOptions.length === 0) {
-      // Try alternative: options as JSON string in req.body.options
-      if (req.body.options) {
-        try {
-          const alt =
-            typeof req.body.options === "string"
-              ? JSON.parse(req.body.options)
-              : req.body.options;
-          if (Array.isArray(alt)) {
-            // Ensure proper shape
-            alt.forEach((o, i) => {
-              parsedOptions.push({
-                label: o.label ?? "",
-                isCorrect: toBool(o.isCorrect),
-                image:
-                  req.files?.[`optionImage_${i}`]?.[0]?.path || o.image || null,
-              });
+    // fallback if req.body.options contains JSON array
+    if (parsedOptions.length === 0 && req.body.options) {
+      try {
+        const alt =
+          typeof req.body.options === "string"
+            ? JSON.parse(req.body.options)
+            : req.body.options;
+        if (Array.isArray(alt)) {
+          alt.forEach((o, i) => {
+            parsedOptions.push({
+              label: o.label ?? "",
+              isCorrect: toBool(o.isCorrect),
+              image: null, // if they provided o.image you may keep it; here we prefer uploads
             });
-          }
-        } catch (err) {
-          // ignore, we'll handle below
+          });
         }
+      } catch (err) {
+        // ignore
       }
     }
 
-    // final validation: must have options and exactly one correct
     if (!Array.isArray(parsedOptions) || parsedOptions.length === 0) {
       return res.status(400).json({
         success: false,
@@ -104,11 +108,18 @@ exports.createMCQ = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Exactly one option must be marked as correct.",
-        parsedOptions, // helpful for debugging
+        parsedOptions,
       });
     }
 
-    const questionImagePath = req.files?.questionImage?.[0]?.path || null;
+    // question image (optional)
+    const questionFile = req.files?.questionImage?.[0] || null;
+    let questionImagePath = null;
+    if (questionFile && questionFile.buffer) {
+      const key = buildKey("mcq", questionFile.originalname);
+      await uploadBufferToS3(questionFile.buffer, key, questionFile.mimetype);
+      questionImagePath = key;
+    }
 
     const mcq = await MCQ.create({
       standardId,
@@ -207,16 +218,30 @@ exports.getById = async (req, res) => {
   }
 };
 
-// Helper to safely delete old file
+// Helper to safely delete old file (works for both local path and s3 keys)
+// We assume S3 keys are of form 'uploads/...'
 function deleteFileIfExists(filePath) {
-  if (filePath && fs.existsSync(filePath)) {
-    fs.unlink(filePath, (err) => {
-      if (err) console.error("Failed to delete old image:", err.message);
-    });
+  if (!filePath) return;
+  try {
+    // If path looks like uploads/..., treat as S3 key
+    if (typeof filePath === "string" && filePath.startsWith("uploads/")) {
+      // async delete but don't await to avoid blocking
+      deleteFromS3(filePath).catch((e) =>
+        console.error("Failed to delete S3 object:", e.message)
+      );
+    } else {
+      // legacy local path - try unlink (non-blocking)
+      if (fs.existsSync(filePath)) {
+        fs.unlink(filePath, (err) => {
+          if (err) console.error("Failed to delete local file:", err.message);
+        });
+      }
+    }
+  } catch (err) {
+    console.error("deleteFileIfExists error:", err.message);
   }
 }
 
-// Update MCQ Controller
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
@@ -238,50 +263,67 @@ exports.update = async (req, res) => {
       }
     }
 
-    // If no options provided in request, keep old options
     if (!options || !Array.isArray(options) || options.length === 0) {
       options = existing.options;
     }
 
-    // Merge and replace images where new ones are uploaded
-    const mergedOptions = options.map((opt, i) => {
+    /* ---------------- Merge and handle new uploads ---------------- */
+    const mergedOptions = [];
+
+    for (let i = 0; i < options.length; i++) {
       const existingOpt = existing.options[i] || {};
-      const uploadedImg = req.files?.[`optionImage_${i}`]?.[0]?.path;
+      const bodyOpt = options[i];
 
-      if (uploadedImg) deleteFileIfExists(existingOpt.image);
+      const uploaded = req.files?.[`optionImage_${i}`]?.[0];
 
-      return {
-        label: opt.label ?? existingOpt.label,
-        isCorrect: toBool(opt.isCorrect ?? existingOpt.isCorrect),
-        image: uploadedImg || existingOpt.image || null,
-      };
-    });
+      if (uploaded && uploaded.buffer) {
+        // delete old from S3
+        deleteFileIfExists(existingOpt.image);
 
-    // Validate exactly one correct option
+        const key = buildKey("mcq", uploaded.originalname);
+        await uploadBufferToS3(uploaded.buffer, key, uploaded.mimetype);
+
+        mergedOptions.push({
+          label: bodyOpt.label ?? existingOpt.label,
+          isCorrect: toBool(bodyOpt.isCorrect ?? existingOpt.isCorrect),
+          image: key,
+        });
+      } else {
+        mergedOptions.push({
+          label: bodyOpt.label ?? existingOpt.label,
+          isCorrect: toBool(bodyOpt.isCorrect ?? existingOpt.isCorrect),
+          image: existingOpt.image || null,
+        });
+      }
+    }
+
+    // Validate correct option
     ensureOneCorrect(mergedOptions);
 
-    // Build update data
+    /* ---------------- Build Update ---------------- */
     const updateData = {
       standardId: req.body.standardId || existing.standardId,
       categoryId: req.body.categoryId || existing.categoryId,
       subjectId: req.body.subjectId || existing.subjectId,
+      options: mergedOptions,
+      explanation: req.body.explanation || existing.explanation,
       question: {
         text: req.body.questionText || existing.question.text,
         image: existing.question.image,
         language: req.body.language || existing.question.language,
         font: req.body.font || existing.question.font,
       },
-      options: mergedOptions,
-      explanation: req.body.explanation || existing.explanation,
     };
 
     // Replace question image if uploaded
     if (req.files?.questionImage?.[0]) {
       deleteFileIfExists(existing.question.image);
-      updateData.question.image = req.files.questionImage[0].path;
+      const qf = req.files.questionImage[0];
+      const key = buildKey("mcq", qf.originalname);
+      await uploadBufferToS3(qf.buffer, key, qf.mimetype);
+      updateData.question.image = key;
     }
 
-    // Perform update
     const updated = await MCQ.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
@@ -331,6 +373,28 @@ exports.restore = async (req, res) => {
 
 exports.hardDelete = async (req, res) => {
   try {
+    const doc = await MCQ.findById(req.params.id);
+    if (!doc)
+      return res.status(404).json({ success: false, error: "not found" });
+
+    // collect keys to delete
+    const keysToDelete = [];
+    if (
+      doc.question?.image &&
+      String(doc.question.image).startsWith("uploads/")
+    ) {
+      keysToDelete.push(doc.question.image);
+    }
+    if (Array.isArray(doc.options)) {
+      doc.options.forEach((o) => {
+        if (o.image && String(o.image).startsWith("uploads/"))
+          keysToDelete.push(o.image);
+      });
+    }
+
+    // delete them (parallel)
+    await Promise.all(keysToDelete.map((k) => deleteFromS3(k)));
+
     await MCQ.deleteOne({ _id: req.params.id });
     return res.json({ success: true, message: "hard deleted" });
   } catch (err) {
