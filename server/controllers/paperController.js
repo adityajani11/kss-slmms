@@ -18,15 +18,8 @@ function shuffle(arr) {
 /* ---------- SAVE STUDENT-GENERATED PAPER ---------- */
 exports.generatePaper = async (req, res) => {
   try {
-    const {
-      mcqs,
-      pdfHeading,
-      includeAnswers,
-      title,
-      studentId,
-      standardId,
-      subjectId,
-    } = req.body;
+    const { mcqs, pdfHeading, includeAnswers, title, studentId, standardId } =
+      req.body;
 
     // --- Validate input ---
     if (!studentId || !standardId) {

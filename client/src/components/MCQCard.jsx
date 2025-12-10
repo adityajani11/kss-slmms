@@ -25,13 +25,20 @@ export default function MCQCard({
 }) {
   const [isFullModalOpen, setIsFullModalOpen] = useState(false);
 
-  const baseURL =
-    import.meta.env.VITE_API_BASE_URL?.replace("/api/v1", "") || "";
+  const baseURL = import.meta.env.VITE_API_BASE_URL || "";
   const apiBase = import.meta.env.VITE_API_BASE_URL;
 
-  const questionImage = mcq?.question?.image
-    ? `${baseURL}/${mcq.question.image.replace(/\\/g, "/")}`
-    : null;
+  // ---- Build MCQ Image URL helper
+  const buildMCQImageURL = (key) => {
+    if (!key) return null;
+
+    const clean = String(key).trim();
+    if (!clean || clean === "null" || clean === "undefined") return null;
+
+    return `${baseURL}/mcqs/image?key=${encodeURIComponent(clean)}`;
+  };
+
+  const questionImage = buildMCQImageURL(mcq?.question?.image);
 
   const standard = mcq?.standardId?.standard || "-";
   const subject = mcq?.subjectId?.name || "-";
@@ -137,10 +144,10 @@ export default function MCQCard({
 
       <div className="space-y-2">
         {mcq.options.map((opt, index) => {
-          const optImg = opt.image
-            ? `${baseURL}/${opt.image.replace(/\\/g, "/")}`
-            : null;
+          const optImg = buildMCQImageURL(opt.image);
+
           const optionLetter = String.fromCharCode(65 + index); // A, B, C, D
+          `${encodeURIComponent(opt.image)}`;
 
           return (
             <div

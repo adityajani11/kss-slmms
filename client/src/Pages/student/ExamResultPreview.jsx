@@ -95,12 +95,16 @@ export default function ExamResultPreview() {
   // ----------------------------
   // PATH NORMALIZATION
   // ----------------------------
-  const fileBase = base.replace("/api/v1", "");
-
   const getImageUrl = (img) => {
     if (!img) return null;
-    const normalized = img.replace(/\\/g, "/").replace(/^\/+/, "");
-    return `${fileBase}/${normalized}`;
+
+    // normalize slashes
+    const key = img.trim();
+
+    if (!key || key === "null" || key === "undefined") return null;
+
+    // Build S3 proxy URL
+    return `${base}/mcqs/image?key=${encodeURIComponent(key)}`;
   };
 
   return (

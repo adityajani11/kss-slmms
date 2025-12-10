@@ -15,6 +15,16 @@ function buildHTML(mcqs, pdfHeading = "", includeAnswers, includeExplanations) {
 
   const safeHeading = pdfHeading?.trim() || "";
 
+  function buildS3ImageURL(key) {
+    if (!key) return null;
+
+    const clean = String(key).replace(/\\/g, "/").trim();
+    if (!clean || clean === "null" || clean === "undefined") return null;
+
+    const base = process.env.BASE_URL || "http://localhost:5000/api/v1";
+    return `${base}/mcqs/image?key=${encodeURIComponent(clean)}`;
+  }
+
   const header = `
   <!DOCTYPE html>
   <html lang="gu">
@@ -157,13 +167,8 @@ function buildHTML(mcqs, pdfHeading = "", includeAnswers, includeExplanations) {
   mcqs.forEach((mcq, i) => {
     const q = wrapGujarati(renderKaTeXInline(mcq.question.text || ""));
 
-    // Build full image URL if relative
-    let qImage = mcq.question?.image || "";
-    if (qImage && !/^https?:\/\//i.test(qImage)) {
-      qImage = `${
-        process.env.BASE_URL || "http://localhost:5000"
-      }/${qImage.replace(/\\/g, "/")}`;
-    }
+    // Build full image URL for question image
+    let qImage = buildS3ImageURL(mcq.question?.image);
 
     const qImageTag = qImage
       ? `<img src="${qImage}" class="mcq-img" alt="MCQ Image" />`
@@ -172,12 +177,7 @@ function buildHTML(mcqs, pdfHeading = "", includeAnswers, includeExplanations) {
     const opts = mcq.options
       .map((o, idx) => {
         const optText = wrapGujarati(renderKaTeXInline(o.label || ""));
-        let optImage = o.image || "";
-        if (optImage && !/^https?:\/\//i.test(optImage)) {
-          optImage = `${
-            process.env.BASE_URL || "http://localhost:5000"
-          }/${optImage.replace(/\\/g, "/")}`;
-        }
+        let optImage = buildS3ImageURL(o.image);
 
         const optImgTag = optImage
           ? `<img src="${optImage}" class="opt-img" alt="Option Image" />`

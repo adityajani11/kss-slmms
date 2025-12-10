@@ -14,16 +14,14 @@ import {
 import katex from "katex";
 import "katex/dist/katex.min.css";
 
-// ✅ Utility to build full image URLs safely
-const buildImageURL = (base, imgPath) => {
-  if (!imgPath) return null;
-  if (imgPath.startsWith("http")) return imgPath;
+// Utility to build full image URLs safely
+const buildImageURL = (base, key) => {
+  if (!key) return null;
 
-  // Remove trailing /api or /api/v1 from base URL if present
-  const cleanBase = base.replace(/\/api(\/v1)?\/?$/, "").replace(/\/$/, "");
-  const cleanPath = imgPath.replace(/^\/+/, "");
+  const cleanKey = String(key).replace(/\\/g, "/").trim();
+  if (!cleanKey || cleanKey === "null" || cleanKey === "undefined") return null;
 
-  return `${cleanBase}/${cleanPath}`;
+  return `${base}/mcqs/image?key=${encodeURIComponent(cleanKey)}`;
 };
 
 /* ---------- Enhanced KaTeX + Image + Gujarati Renderer ---------- */

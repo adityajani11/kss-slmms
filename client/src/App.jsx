@@ -27,6 +27,8 @@ import Settings from "./pages/admin/Settings";
 import ExamResultPreview from "./pages/student/ExamResultPreview";
 import ChangePassword from "./pages/staff/ChangePassword";
 
+import AdminRegister from "./pages/admin/AdminRegister";
+
 import "katex/dist/katex.min.css";
 
 function App() {
@@ -37,6 +39,9 @@ function App() {
 
       {/* Route for student register */}
       <Route path="/student/register" element={<StudentForm />} />
+
+      {/* Route for admin register */}
+      <Route path="/register-admin" element={<AdminRegister />} />
 
       {/* Admin Routes */}
       <Route

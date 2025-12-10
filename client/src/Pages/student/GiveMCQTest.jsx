@@ -17,6 +17,15 @@ export default function GiveMCQTest() {
   const base = import.meta.env.VITE_API_BASE_URL;
   const token = localStorage.getItem("token");
 
+  const getImageUrl = (img) => {
+    if (!img) return null;
+
+    const key = img.trim();
+    if (!key || key === "null" || key === "undefined") return null;
+
+    return `${base}/mcqs/image?key=${encodeURIComponent(key)}`;
+  };
+
   // Fetch paginated MCQs
   const fetchMCQs = async (pageNum = 1) => {
     try {
@@ -128,9 +137,9 @@ export default function GiveMCQTest() {
 
               {q.question.image && (
                 <img
-                  src={`${base.replace("/api/v1", "")}/${q.question.image}`}
+                  src={getImageUrl(q.question.image)}
                   alt="Question"
-                  className="mb-3 max-h-40"
+                  className="mb-3 max-h-40 rounded"
                 />
               )}
 
@@ -154,9 +163,9 @@ export default function GiveMCQTest() {
                     <span>{opt.label}</span>
                     {opt.image && (
                       <img
-                        src={`${base.replace("/api/v1", "")}/${opt.image}`}
+                        src={getImageUrl(opt.image)}
                         alt="Option"
-                        className="max-h-10"
+                        className="max-h-10 rounded"
                       />
                     )}
                   </label>

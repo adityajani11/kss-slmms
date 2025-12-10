@@ -2,10 +2,10 @@
 const express = require("express");
 const router = express.Router();
 
-// NEW: use memory storage instead of uploadMCQ (disk storage)
+// use memory storage instead of uploadMCQ (disk storage)
 const upload = require("../middleware/multerMemory");
-
 const ctrl = require("../controllers/mcqController");
+const imageCtrl = require("../controllers/mcqImageController");
 
 // PDF route for filtered MCQs
 router.post("/pdf", ctrl.getFilteredMcqPDF);
@@ -35,6 +35,7 @@ router.put(
   ]),
   ctrl.update
 );
+router.get("/image", imageCtrl.getImage);
 
 /* ---------- OTHERS ---------- */
 router.get("/", ctrl.list);

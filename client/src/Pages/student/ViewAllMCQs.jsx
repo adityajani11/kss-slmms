@@ -241,10 +241,13 @@ export default function ViewAllMCQs() {
   /** =========================
    * HELPERS
    * ========================= */
-  const getImageUrl = (imgPath) => {
-    if (!imgPath) return null;
-    if (imgPath.startsWith("http")) return imgPath;
-    return `${fileBase}/${imgPath.replace(/^\/+/, "")}`;
+  const getImageUrl = (key) => {
+    if (!key) return null;
+
+    const clean = String(key).trim();
+    if (!clean || clean === "null" || clean === "undefined") return null;
+
+    return `${base}/mcqs/image?key=${encodeURIComponent(clean)}`;
   };
 
   // Choose random MCQs (of given MCQ limit)
